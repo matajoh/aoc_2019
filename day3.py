@@ -1,6 +1,6 @@
+""" Solution to Day 3 """
+
 import os
-import sys
-import csv
 from collections import namedtuple
 
 import numpy as np
@@ -57,6 +57,19 @@ class Segment(namedtuple("Segment", ["start", "end"])):
     def __len__(self):
         return (self.end - self.start).distance()
 
+    def points(self):
+        """ Return all the points in this segment """
+        if self.is_horizontal:
+            y = self.start.y
+            start, end = reorder(self.start.x, self.end.x)
+            for x in range(start, end+1):
+                yield Point(x, y)
+        else:
+            x = self.start.x
+            start, end = reorder(self.start.y, self.end.y)
+            for y in range(start, end+1):
+                yield Point(x, y)
+
     def contains(self, point):
         """ Whether a point falls on the segment """
         if self.is_horizontal:
@@ -104,7 +117,7 @@ def reorder(a, b):
     """ Reorder the arguments so they are ascending """
     if b < a:
         return b, a
-    
+
     return a, b
 
 
@@ -118,6 +131,7 @@ class Wire:
         right = 0
         top = 0
         bottom = 0
+        points = []
         for direction in directions:
             distance = int(direction[1:])
             if direction[0] == 'L':
@@ -136,10 +150,13 @@ class Wire:
             right = max(right, end.x)
             top = min(top, end.y)
             bottom = max(bottom, end.y)
+            segment = Segment(start, end)
+            points.extend(segment.points())
             self.segments.append(Segment(start, end))
             start = end
 
         self.bounds = Rect(left, top, right-left+1, bottom-top+1)
+        self.points = set(points)
 
     def steps_to(self, point):
         """ Determine the number of steps to the given point """
@@ -203,13 +220,6 @@ def parse_wires(dir0, dir1):
     return wire0, wire1
 
 
-def find_intersections(grid, offset):
-    """ Find all intersections in the grid """
-    y_vals, x_vals = np.nonzero(grid == INTERSECTION)
-    for x, y in zip(x_vals, y_vals):
-        yield Point(x, y) + offset
-
-
 def combine(grid0: np.ndarray, grid1: np.ndarray, offset: Point):
     """ Create a combination of the two grids """
     print("Combining...")
@@ -223,11 +233,15 @@ def combine(grid0: np.ndarray, grid1: np.ndarray, offset: Point):
     origin = Point(0, 0) - offset
     combo[origin.y, origin.x] = ORIGIN
 
-    if VERBOSE:
-        print(to_string(combo))
-
     return combo
 
+
+def find_intersections(wire0: Wire, wire1: Wire):
+    """ Finds intersections between the two wires """
+    print("Finding the intersections...")
+    points = wire0.points & wire1.points
+    points.remove(Point(0, 0))
+    return points
 
 def find_min_dist(points):
     """ Finds the minimum distance """
@@ -250,11 +264,7 @@ def find_min_steps(wire0, wire1, points):
 def test_min_dist(dir0, dir1, expected):
     """ Test the minimum distance function """
     wire0, wire1 = parse_wires(dir0, dir1)
-    offset = Point(wire0.bounds.left, wire0.bounds.top)
-    grid0 = wire0.draw()
-    grid1 = wire1.draw()
-    combo = combine(grid0, grid1, offset)
-    points = list(find_intersections(combo, offset))
+    points = find_intersections(wire0, wire1)
     actual = find_min_dist(points)
     assert actual == expected
 
@@ -268,11 +278,7 @@ def test_min_dist(dir0, dir1, expected):
 def test_min_steps(dir0, dir1, expected):
     """ Test the minimum steps function """
     wire0, wire1 = parse_wires(dir0, dir1)
-    offset = Point(wire0.bounds.left, wire0.bounds.top)
-    grid0 = wire0.draw()
-    grid1 = wire1.draw()
-    combo = combine(grid0, grid1, offset)
-    points = list(find_intersections(combo, offset))
+    points = find_intersections(wire0, wire1)
     actual = find_min_steps(wire0, wire1, points)
     assert actual == expected
 
@@ -282,11 +288,7 @@ def _main():
         dir0, dir1 = file
 
     wire0, wire1 = parse_wires(dir0, dir1)
-    grid0 = wire0.draw()
-    grid1 = wire1.draw()
-    offset = Point(wire0.bounds.left, wire0.bounds.top)
-    combo = combine(grid0, grid1, offset)
-    points = list(find_intersections(combo, offset))
+    points = find_intersections(wire0, wire1)
     min_dist = find_min_dist(points)
     print("Part 1:", min_dist)
 
