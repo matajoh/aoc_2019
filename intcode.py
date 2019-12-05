@@ -2,7 +2,7 @@
 
 from copy import copy
 from enum import IntEnum
-from typing import Callable, List
+from typing import List
 from collections import namedtuple
 
 import numpy as np
@@ -10,101 +10,102 @@ import pytest
 
 
 class ParameterMode(IntEnum):
-    Position = 0
-    Immediate = 1
+    """ Different modes for parameter interpretation """
+    Position = 0    # Parameter is a memory position
+    Immediate = 1   # Parameter is a literal value
 
 
-def add(inst, memory, counter):
-    lhs, rhs, output = inst.parameters(memory, counter)
+def add(params: List[int], memory: List[int], counter: int) -> int:
+    """ Adds two parameters and places them in an output position """
+    lhs, rhs, output = params
     memory[output] = lhs + rhs
     return counter + 4
 
-def multiply(inst, memory, counter):
-    lhs, rhs, output = inst.parameters(memory, counter)
+
+def multiply(params: List[int], memory: List[int], counter: int) -> int:
+    """ Multiplies two parameters and places them in an output position """
+    lhs, rhs, output = params
     memory[output] = lhs * rhs
     return counter + 4
 
-def read_input(inst, memory, counter):
+
+def read_input(params: List[int], memory: List[int], counter: int) -> int:
+    """ Reads input from the console """
     value = int(input("input> "))
-    output, = inst.parameters(memory, counter)
+    output, = params
     memory[output] = value
     return counter + 2
 
-def write_output(inst, memory, counter):
-    value, = inst.parameters(memory, counter)
+
+def write_output(params: List[int], _, counter: int) -> int:
+    """ Writes output to the console """
+    value, = params
     print("output>", value)
     return counter + 2
 
-def halt(inst, memory, counter):
-    raise NotADirectoryError("Halt")
 
-def jump_if_true(inst, memory, counter):
-    test, value = inst.parameters(memory, counter)
+def jump_if_true(params: List[int], _, counter: int) -> int:
+    """ Jumps the program counter if a condition is true """
+    test, value = params
     if test:
         return value
-    
+
     return counter + 3
 
-def jump_if_false(inst, memory, counter):
-    test, value = inst.parameters(memory, counter)
+
+def jump_if_false(params: List[int], _, counter: int) -> int:
+    """ Jumps the program counter if a condition is false """
+    test, value = params
     if test:
         return counter + 3
-    
+
     return value
 
-def less_than(inst, memory, counter):
-    lhs, rhs, output = inst.parameters(memory, counter)
+
+def less_than(params: List[int], memory: List[int], counter: int) -> int:
+    """ Stores if one parameter is less than another """
+    lhs, rhs, output = params
     memory[output] = 1 if lhs < rhs else 0
     return counter + 4
 
-def equals(inst, memory, counter):
-    lhs, rhs, output = inst.parameters(memory, counter)
+
+def equals(params: List[int], memory: List[int], counter: int) -> int:
+    """ Stores if one parameter is greater than another """
+    lhs, rhs, output = params
     memory[output] = 1 if lhs == rhs else 0
     return counter + 4
 
 
-Operation = namedtuple("Operation", ["call", "num_params", "num_outputs"])
+class Operation(namedtuple("Operation", ["call", "num_params", "num_outputs"])):
+    """ Class encapsulating a computer operation """
 
-
-
-class Instruction:
-    MathCodes = [1, 2]
-    Input = 3
-    Output = 4
-    Halt = 99
-
-    Operations = {
-        1: Operation(add, 2, 1),
-        2: Operation(multiply, 2, 1),
-        3: Operation(read_input, 0, 1),
-        4: Operation(write_output, 1, 0),
-        5: Operation(jump_if_true, 2, 0),
-        6: Operation(jump_if_false, 2, 0),
-        7: Operation(less_than, 2, 1),
-        8: Operation(equals, 2, 1),
-        99: Operation(halt, 0, 0)
-    }
-
-    def __init__(self, opcode):
-        self.code = opcode % 100
-        self.num_params = 0
-        self.num_outputs = 0
-        self.call, self.num_params, self.num_outputs = Instruction.Operations[self.code]
-
+    def modes(self, opcode):
+        """ Extract the modes from the opcode """
         num_modes = self.num_params + self.num_outputs
-        modes = str(opcode).zfill(2 + num_modes)[:num_modes]
-        self.modes = [ParameterMode(int(mode)) for mode in modes]
-        self.modes = list(reversed(self.modes))
+        modes = [ParameterMode.Position]*num_modes
+        opcode //= 100
+        index = 0
+        while opcode:
+            if opcode % 10:
+                modes[index] = ParameterMode.Immediate
+
+            index += 1
+            opcode //= 10
+
         if self.num_outputs:
-            for mode in self.modes[-self.num_outputs:]:
+            for mode in modes[-self.num_outputs:]:
                 assert mode == ParameterMode.Position
 
-    def parameters(self, memory, counter) -> List[int]:
+        return modes
+
+    def params(self, memory: List[int], counter: int) -> List[int]:
+        """ Extract the parameters from memory """
+        modes = self.modes(memory[counter])
         start = counter + 1
         end = start + self.num_params
         values = memory[start:end]
         params = []
-        for mode, value in zip(self.modes, values):
+        for mode, value in zip(modes, values):
             if mode == ParameterMode.Position:
                 params.append(memory[value])
             else:
@@ -112,13 +113,25 @@ class Instruction:
 
         start = end
         end = end + self.num_outputs
-        params = params + memory[start:end]
 
-        return params
-    
-    def __call__(self, memory, counter) -> int:
-        return self.call(self, memory, counter)
+        return params + memory[start:end]
 
+    def __call__(self, memory, counter):
+        params = self.params(memory, counter)
+        return self.call(params, memory, counter)
+
+
+Operations = {
+    1: Operation(add, 2, 1),
+    2: Operation(multiply, 2, 1),
+    3: Operation(read_input, 0, 1),
+    4: Operation(write_output, 1, 0),
+    5: Operation(jump_if_true, 2, 0),
+    6: Operation(jump_if_false, 2, 0),
+    7: Operation(less_than, 2, 1),
+    8: Operation(equals, 2, 1),
+    99: None
+}
 
 
 class Computer:
@@ -152,11 +165,11 @@ class Computer:
 
         counter = 0
         while True:
-            inst = Instruction(memory[counter])
-            if inst.code == Instruction.Halt:
+            operation = Operations[memory[counter] % 100]
+            if operation:
+                counter = operation(memory, counter)
+            else:
                 break
-            
-            counter = inst(memory, counter)
 
         return memory
 
@@ -168,7 +181,7 @@ class Computer:
     ([1, 1, 1, 4, 99, 5, 6, 0, 99], [30, 1, 1, 4, 2, 5, 6, 0, 99]),
     ([1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50],
      [3500, 9, 10, 70, 2, 3, 11, 0, 99, 30, 40, 50]),
-    ([1101,100,-1,4,0], [1101, 100, -1, 4, 99])
+    ([1101, 100, -1, 4, 0], [1101, 100, -1, 4, 99])
 ])
 def test_computer(input_memory, output_memory):
     """ Test """
@@ -181,13 +194,12 @@ def test_computer(input_memory, output_memory):
     (2, 2, [0, 0, 0]),
     (3, 3, [0]),
     (4, 4, [0]),
-    (99, 99, []),
     (1002, 2, [0, 1, 0]),
     (101, 1, [1, 0, 0]),
     (104, 4, [1]),
     (1101, 1, [1, 1, 0])
 ])
-def test_instruction(opcode, code, modes):
-    inst = Instruction(opcode)
-    assert inst.code == code
-    np.testing.assert_array_equal(inst.modes, modes)
+def test_operation(opcode, code, modes):
+    """ Test the operation mode extraction """
+    operation = Operations[code]
+    np.testing.assert_array_equal(operation.modes(opcode), modes)
