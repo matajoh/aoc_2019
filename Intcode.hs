@@ -5,6 +5,7 @@ module Intcode
 import qualified Data.Map as Map
 import Data.Maybe
 import Test.HUnit
+import Debug.Trace
 
 
 memToList :: Map.Map Integer Integer -> [Integer] -> [Integer]
