@@ -5,18 +5,18 @@ import os
 from intcode import Computer
 
 
-def _part1(memory):
-    computer = Computer(memory)
-    memory = computer.run(12, 2)
-    print("part1:", memory[0])
+def _part1(program):
+    computer = Computer(program)
+    computer.run(12, 2)
+    print("part1:", computer.memory[0])
 
 
-def _part2(memory, target):
-    computer = Computer(memory)
+def _part2(program, target):
+    computer = Computer(program)
     for noun in range(100):
         for verb in range(100):
-            memory = computer.run(noun, verb)
-            if memory[0] == target:
+            computer.run(noun, verb)
+            if computer.memory[0] == target:
                 print("part2:", noun*100 + verb)
                 return
 
@@ -25,10 +25,10 @@ def _part2(memory, target):
 
 def _main():
     with open(os.path.join("inputs", "day2.txt")) as file:
-        memory = [int(value) for value in file.read().split(',')]
+        program = [int(value) for value in file.read().split(',')]
 
-    _part1(memory)
-    _part2(memory, 19690720)
+    _part1(program)
+    _part2(program, 19690720)
 
 
 if __name__ == "__main__":
