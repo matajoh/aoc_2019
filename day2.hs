@@ -38,5 +38,5 @@ main = do
     let values = words (map prep contents)
         program = map read values :: [Integer]
 
-    putStrLn ("part 1: " ++ (show (part1 program)))
-    putStrLn ("part 2: " ++ (show (part2 program 19690720)))
+    putStrLn ("part 1: " ++ show (part1 program))
+    putStrLn ("part 2: " ++ show (part2 program 19690720))

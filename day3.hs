@@ -31,12 +31,12 @@ type Wire = [Segment]
 points :: Segment -> [Point]
 points (Horizontal start end)
     | start == end = [start]
-    | start < end = start:(points (Horizontal (right 1 start) end))
-    | otherwise = start:(points (Horizontal (left 1 start) end))
+    | start < end = start:points (Horizontal (right 1 start) end)
+    | otherwise = start:points (Horizontal (left 1 start) end)
 points (Vertical start end)
     | start == end = [start]
-    | start < end = start:(points (Vertical (down 1 start) end))
-    | otherwise = start:(points (Vertical (up 1 start) end))
+    | start < end = start:points (Vertical (down 1 start) end)
+    | otherwise = start:points (Vertical (up 1 start) end)
 points (Origin end) = [end]
 
 within :: Integer -> Integer -> Integer -> Bool
@@ -73,12 +73,12 @@ makeSegment dir start distance
     | dir == 'R' = Horizontal start (right (read distance ::Integer) start)
     | dir == 'D' = Vertical start (down (read distance :: Integer) start)
     | dir == 'L' = Horizontal start (left (read distance :: Integer) start)
-    | otherwise = error("Invalid direction")
+    | otherwise = error "Invalid direction"
 
 
 followDirections :: [String] -> Wire -> Wire
 followDirections directions segments
-    | length directions == 0 = reverse segments
+    |   null directions = reverse segments
     | otherwise = do
         let start = end (head segments)
         let direction:directions' = directions
@@ -89,11 +89,11 @@ followDirections directions segments
 readWire :: String -> Wire
 readWire directions = do
     let directions' = words (map prep directions)
-    let segments = [(Origin (Point 0 0))]
+    let segments = [Origin (Point 0 0)]
     followDirections directions' segments
 
 manhattan :: Point -> Integer
-manhattan (Point x y) = (abs x) + (abs y)
+manhattan (Point x y) = abs x + abs y
 
 comparePoints :: (Point -> Integer) -> Point -> Point -> Ordering
 comparePoints distance lhs rhs = compare (distance lhs) (distance rhs)
@@ -114,13 +114,13 @@ minDistIntersection wire0 wire1 = do
 totalStepsTo :: Wire -> Point -> Integer
 totalStepsTo wire point = do
     let segment:segments = wire
-    if (contains point segment) then
+    if contains point segment then
         stepsTo point segment
     else
-        (steps segment) + (totalStepsTo segments point)
+        steps segment + totalStepsTo segments point
 
 combinedStepsTo :: Wire -> Wire -> Point -> Integer
-combinedStepsTo wire0 wire1 point = (totalStepsTo wire0 point) + (totalStepsTo wire1 point)
+combinedStepsTo wire0 wire1 point = totalStepsTo wire0 point + totalStepsTo wire1 point
 
 minStepsIntersection :: Wire -> Wire -> Integer
 minStepsIntersection wire0 wire1 = do
