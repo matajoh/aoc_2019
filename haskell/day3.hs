@@ -81,10 +81,9 @@ followDirections directions segments
     |   null directions = reverse segments
     | otherwise = do
         let start = end (head segments)
-        let direction:directions' = directions
-        let dir:distance = direction
+        let dir:distance = head directions
         let segment = makeSegment dir start distance
-        followDirections directions' (segment:segments)
+        followDirections (tail directions) (segment:segments)
 
 readWire :: String -> Wire
 readWire directions = do
