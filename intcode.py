@@ -8,10 +8,38 @@ import numpy as np
 import pytest
 
 
+class Memory:
+    """ Class representing the memory of an Intcode computer """
+    def __init__(self, values):
+        self._lookup = dict(enumerate(values))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            start = 0 if key.start is None else key.start
+            stop = key.stop
+            step = 1 if key.step is None else key.step
+            return [self[i] for i in range(start, stop, step)]
+
+        if key not in self._lookup:
+            self._lookup[key] = 0
+
+        return self._lookup[key]
+
+    def __setitem__(self, key, value):
+        self._lookup[key] = value
+
+    def to_list(self) -> List[int]:
+        """ Converts the memory to a list representation """
+        start = 0
+        stop = max(self._lookup.keys()) + 1
+        return [self[i] for i in range(start, stop)]
+
+
 class ParameterMode(IntEnum):
     """ Different modes for parameter interpretation """
     Position = 0    # Parameter is a memory position
     Immediate = 1   # Parameter is a literal value
+    Relative = 2    # Parameter utilizes the relative base
 
 
 class Operation(namedtuple("Operation", ["code", "call", "num_params", "num_outputs"])):
@@ -24,38 +52,44 @@ class Operation(namedtuple("Operation", ["code", "call", "num_params", "num_outp
         opcode //= 100
         index = 0
         while opcode:
-            if opcode % 10:
+            mode = opcode % 10
+            if mode == 1:
                 modes[index] = ParameterMode.Immediate
+            elif mode == 2:
+                modes[index] = ParameterMode.Relative
 
             index += 1
             opcode //= 10
 
         if self.num_outputs:
             for mode in modes[-self.num_outputs:]:
-                assert mode == ParameterMode.Position
+                assert mode in (ParameterMode.Position, ParameterMode.Relative)
 
         return modes
 
-    def params(self, memory: List[int], counter: int) -> List[int]:
+    def params(self, memory: Memory, counter: int, relative_base: int) -> List[int]:
         """ Extract the parameters from memory """
         modes = self.modes(memory[counter])
         start = counter + 1
-        end = start + self.num_params
+        end = start + self.num_params + self.num_outputs
         values = memory[start:end]
         params = []
         for mode, value in zip(modes, values):
             if mode == ParameterMode.Position:
-                params.append(memory[value])
+                params.append(value)
+            elif mode == ParameterMode.Relative:
+                params.append(value + relative_base)
             else:
                 params.append(value)
 
-        start = end
-        end = end + self.num_outputs
+        for i in range(self.num_params):
+            if modes[i] != ParameterMode.Immediate:
+                params[i] = memory[params[i]]
 
-        return params + memory[start:end]
+        return params
 
-    def __call__(self, memory, counter):
-        params = self.params(memory, counter)
+    def __call__(self, memory, counter, relative_base):
+        params = self.params(memory, counter, relative_base)
         return self.call(params, memory, counter)
 
 
@@ -66,11 +100,12 @@ class Computer:
         memory: the initial memory. Will not be modified.
     """
 
-    def __init__(self, memory: List[int], verbose=False):
+    def __init__(self, memory: Memory, verbose=False):
         self._initial_memory = memory.copy()
-        self._memory = memory.copy()
+        self._memory = Memory(memory)
         self._verbose = verbose
         self._counter = 0
+        self._relative_base = 0
         self._inputs = []
         self._outputs = []
         self._ops = {
@@ -82,18 +117,20 @@ class Computer:
             6: Operation(6, self.jump_if_false, 2, 0),
             7: Operation(7, self.less_than, 2, 1),
             8: Operation(8, self.equals, 2, 1),
+            9: Operation(9, self.relative_base_offset, 1, 0),
             99: None
         }
 
     def reset(self):
         """ Reset the computer """
-        self._memory = self._initial_memory.copy()
+        self._memory = Memory(self._initial_memory)
         self._counter = 0
+        self._relative_base = 0
 
     @property
     def memory(self) -> List[int]:
-        """ The initial memory of the computer """
-        return self._memory
+        """ The memory of the computer """
+        return self._memory.to_list()
 
     @property
     def ops(self) -> Mapping[int, Operation]:
@@ -130,7 +167,8 @@ class Computer:
         opcode = self._memory[self._counter]
         operation = self._ops[opcode % 100]
         if operation:
-            self._counter = operation(self._memory, self._counter)
+            self._counter = operation(
+                self._memory, self._counter, self._relative_base)
 
     def run(self, noun: int = None, verb: int = None, inputs: List[int] = None):
         """ Run the computer using the program loaded in its memory.
@@ -159,25 +197,26 @@ class Computer:
         while True:
             operation = self._ops[self._memory[self._counter] % 100]
             if operation:
-                self._counter = operation(self._memory, self._counter)
+                self._counter = operation(
+                    self._memory, self._counter, self._relative_base)
             else:
                 break
 
     @staticmethod
-    def add(params: List[int], memory: List[int], counter: int) -> int:
+    def add(params: List[int], memory: Memory, counter: int) -> int:
         """ Adds two parameters and places them in an output position """
         lhs, rhs, output = params
         memory[output] = lhs + rhs
         return counter + 4
 
     @staticmethod
-    def multiply(params: List[int], memory: List[int], counter: int) -> int:
+    def multiply(params: List[int], memory: Memory, counter: int) -> int:
         """ Multiplies two parameters and places them in an output position """
         lhs, rhs, output = params
         memory[output] = lhs * rhs
         return counter + 4
 
-    def input(self, params: List[int], memory: List[int], counter: int) -> int:
+    def input(self, params: List[int], memory: Memory, counter: int) -> int:
         """ Reads input from the console """
         if self._inputs:
             value = self._inputs.pop(0)
@@ -218,18 +257,24 @@ class Computer:
         return value
 
     @staticmethod
-    def less_than(params: List[int], memory: List[int], counter: int) -> int:
+    def less_than(params: List[int], memory: Memory, counter: int) -> int:
         """ Stores if one parameter is less than another """
         lhs, rhs, output = params
         memory[output] = 1 if lhs < rhs else 0
         return counter + 4
 
     @staticmethod
-    def equals(params: List[int], memory: List[int], counter: int) -> int:
+    def equals(params: List[int], memory: Memory, counter: int) -> int:
         """ Stores if one parameter is greater than another """
         lhs, rhs, output = params
         memory[output] = 1 if lhs == rhs else 0
         return counter + 4
+
+    def relative_base_offset(self, params: List[int], _, counter: int) -> int:
+        """ Adjusts the relative base offset """
+        offset, = params
+        self._relative_base += offset
+        return counter + 2
 
 
 @pytest.mark.parametrize("input_memory, output_memory", [
@@ -239,9 +284,9 @@ class Computer:
     ([1, 1, 1, 4, 99, 5, 6, 0, 99], [30, 1, 1, 4, 2, 5, 6, 0, 99]),
     ([1, 9, 10, 3, 2, 3, 11, 0, 99, 30, 40, 50],
      [3500, 9, 10, 70, 2, 3, 11, 0, 99, 30, 40, 50]),
-    ([1101, 100, -1, 4, 0], [1101, 100, -1, 4, 99])
+    ([1101, 100, -1, 4, 0], [1101, 100, -1, 4, 99]),
 ])
-def test_computer(input_memory, output_memory):
+def test_memory(input_memory, output_memory):
     """ Test """
     computer = Computer(input_memory)
     computer.run()
@@ -284,3 +329,20 @@ def test_io(program, settings, expected):
         actual = computer.read()
 
     assert actual == expected
+
+
+@pytest.mark.parametrize("program, expected", [
+    ([109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99],
+     [109, 1, 204, -1, 1001, 100, 1, 100, 1008, 100, 16, 101, 1006, 101, 0, 99]),
+    ([1102, 34915192, 34915192, 7, 4, 7, 99, 0], [1219070632396864]),
+    ([104, 1125899906842624, 99], [1125899906842624])
+])
+def test_outputs(program, expected):
+    """ Tests programs by their output """
+    computer = Computer(program)
+    computer.run()
+    actual = []
+    while computer.has_output:
+        actual.append(computer.read())
+
+    np.testing.assert_array_equal(actual, expected)
