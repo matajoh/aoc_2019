@@ -284,7 +284,7 @@ def test_min_steps(dir0, dir1, expected):
 
 
 def _main():
-    with open(os.path.join("inputs", "day3.txt")) as file:
+    with open(os.path.join("..", "inputs", "day3.txt")) as file:
         dir0, dir1 = file
 
     wire0, wire1 = parse_wires(dir0, dir1)

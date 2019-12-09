@@ -41,7 +41,7 @@ def test_totalFuelFor(mass, fuel):
 
 
 def _main():
-    with open(os.path.join("inputs", "day1.txt")) as file:
+    with open(os.path.join("..", "inputs", "day1.txt")) as file:
         mass = [int(line) for line in file]
 
     fuel = sum([fuelFor(m) for m in mass])

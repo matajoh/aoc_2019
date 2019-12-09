@@ -6,7 +6,7 @@ from intcode import Computer
 
 
 def _main():
-    with open(os.path.join("inputs", "day9.txt")) as file:
+    with open(os.path.join("..", "inputs", "day9.txt")) as file:
         memory = [int(value) for value in file.read().split(',')]
 
     computer = Computer(memory, verbose=True)

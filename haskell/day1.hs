@@ -39,7 +39,7 @@ totalFuelForTests = map
 tests = test (fuelForTests ++ totalFuelForTests)
 
 main = do
-    let input_path = "inputs" ++ [pathSeparator] ++ "day1.txt"
+    let input_path = ".." ++ [pathSeparator] ++ "inputs" ++ [pathSeparator] ++ "day1.txt"
     contents <- readFile input_path
     let values = lines contents
         mass   = map read values :: [Integer]

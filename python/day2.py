@@ -24,7 +24,7 @@ def _part2(program, target):
 
 
 def _main():
-    with open(os.path.join("inputs", "day2.txt")) as file:
+    with open(os.path.join("..", "inputs", "day2.txt")) as file:
         program = [int(value) for value in file.read().split(',')]
 
     _part1(program)

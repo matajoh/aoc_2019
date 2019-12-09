@@ -53,7 +53,7 @@ def collapse(image: np.array) -> np.ndarray:
 
 
 def _main():
-    with open(os.path.join("inputs", "day8.txt")) as file:
+    with open(os.path.join("..", "inputs", "day8.txt")) as file:
         image = parse_image(file.read(), 6, 25)
 
     max_zero_row = np.argmin(count_by_layer(image, 0))

@@ -147,7 +147,7 @@ minStepsTests = map makeTest [
 tests = test (minDistTests ++ minStepsTests)
 
 main = do
-    let path = "inputs" ++ [pathSeparator] ++ "day3.txt"
+    let path = ".." ++ [pathSeparator] ++ "inputs" ++ [pathSeparator] ++ "day3.txt"
     contents <- readFile path
     let wire0:wire1:_ = map readWire (lines contents)
 

@@ -9,7 +9,7 @@ prep char
     | otherwise = char
 
 main = do
-    let path = "inputs" ++ [pathSeparator] ++ "day5.txt"
+    let path = ".." ++ [pathSeparator] ++ "inputs" ++ [pathSeparator] ++ "day5.txt"
     contents <- readFile path
     let values = words (map prep contents)
         program = map read values :: [Int]

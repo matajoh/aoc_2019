@@ -1,6 +1,6 @@
 module Intcode  
-( Computer,
-  Memory,
+( Computer(..),
+  Memory(..),
   toMemory,
   runProgram,
   runProgramWithInputs,
@@ -10,7 +10,8 @@ module Intcode
   writeToInput,
   needsInput,
   hasOutput,
-  isHalted
+  isHalted,
+  dump
 ) where  
 
 import qualified Data.Map as Map

@@ -116,7 +116,7 @@ def test_shortest_transfer():
 
 
 def _main():
-    with open(os.path.join("inputs", "day6.txt")) as file:
+    with open(os.path.join("..", "inputs", "day6.txt")) as file:
         com = Body.parse(file.read())
 
     print("part1:", com.count_orbits(0))
