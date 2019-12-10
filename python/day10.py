@@ -1,25 +1,34 @@
+""" Solution for day 10 """
+
 import os
-from decimal import Decimal
-from collections import namedtuple
+import math
+from collections import namedtuple, OrderedDict
+from sortedcontainers import SortedList
 
 import pytest
 
 class Point(namedtuple("Point", ["x", "y"])):
     """ Point class """
 
-class Line(namedtuple("Line", ["m", "b"])):
+class Ray(namedtuple("Ray", ["angle", "length", "start", "end"])):
+    """ A ray from one point to another """
+
     @staticmethod
-    def create(lhs: Point, rhs: Point) -> "Line":
-        if lhs.x == rhs.x:
-            return Line(Decimal(0), Decimal(-lhs.x))
-        
-        dy = rhs.y - lhs.y
-        dx = rhs.x - lhs.x
-        m = Decimal(dy) / Decimal(dx)
-        b = lhs.y - m*lhs.x
-        return Line(m, b)
+    def create(start: Point, end: Point) -> "Ray":
+        """ Create a ray from one point to another """
+        dx = end.x - start.x
+        dy = end.y - start.y
+        angle = math.atan2(dy, dx) + (math.pi / 2)
+
+        if angle < 0:
+            angle += math.tau
+
+        length = dx*dx + dy*dy
+        return Ray(angle, length, start, end)
+
 
 def parse_points(path):
+    """ Parse the points into a list """
     points = []
     with open(path) as file:
         for y, line in enumerate(file):
@@ -28,35 +37,48 @@ def parse_points(path):
     return points
 
 
-def count_detections(points):
-    num_points = len(points)
-    point_to_lines = {point: set() for point in points}
-    line_to_points = {}
-    for i in range(num_points):
-        lhs = points[i]
-        for j in range(i+1, num_points):
-            rhs = points[j]
-            line = Line.create(points[i], points[j])
-            if line not in line_to_points:
-                line_to_points[line] = set()
-            
-            line_to_points[line].add(lhs)
-            line_to_points[line].add(rhs)
-            point_to_lines[lhs].add(line)
-            point_to_lines[rhs].add(line)
+def compute_rays(points):
+    """ Compute all the rays from each point to every other point """
+    rays = {}
+    for start in points:
+        rays[start] = SortedList([Ray.create(start, end) for end in points if start != end])
 
-    result = {}
-    for point, lines in point_to_lines.items():
-        result[point] = len(lines)
-       
-    return result
+    return rays
+
+
+def compute_seen(rays):
+    """ Compute which points are unobstructed """
+    seen = OrderedDict()
+    for ray in rays:
+        if ray.angle not in seen:
+            seen[ray.angle] = ray
+
+    return list(seen.values())
 
 
 def find_best_position(path):
+    """ Find the position which can see the most points """
     points = parse_points(path)
-    detections = count_detections(points)
-    point = max(detections, key=detections.get)
-    return point, detections[point]
+    rays = compute_rays(points)
+    num_seen = {point: len(compute_seen(ray)) for point, ray in rays.items()}
+    best = max(num_seen, key=num_seen.get)
+    return best, rays[best], num_seen[best]
+
+
+def fire_laser(rays):
+    """ Fire the laser.
+
+        Obliterate all asteroids, and record the order in which they
+        are destroyed
+    """
+    fire_order = []
+    while rays:
+        seen = compute_seen(rays)
+        fire_order.extend([ray.end for ray in seen])
+        for ray in seen:
+            rays.remove(ray)
+
+    return fire_order
 
 @pytest.mark.parametrize("path, expected", [
     ("test0", ((3, 4), 8)),
@@ -66,14 +88,38 @@ def find_best_position(path):
     ("test4", ((11, 13), 210))
 ])
 def test_find_best_position(path, expected):
-    path = os.path.join("..", "inputs", "day10_" + path + ".txt")
-    actual = find_best_position(path)
-    assert actual == expected
+    """ Test """
+    path = os.path.join(os.path.dirname(__file__), "..", "inputs", "day10_" + path + ".txt")
+    best, _, num_seen = find_best_position(path)
+    assert (best, num_seen) == expected
+
+
+def test_fire_layer():
+    """ Test """
+    path = os.path.join(os.path.dirname(__file__), "..", "inputs", "day10_test4.txt")
+    _, rays, _ = find_best_position(path)
+    fire_order = fire_laser(rays)
+    assert fire_order[0] == (11, 12)
+    assert fire_order[1] == (12, 1)
+    assert fire_order[2] == (12, 2)
+    assert fire_order[9] == (12, 8)
+    assert fire_order[19] == (16, 0)
+    assert fire_order[49] == (16, 9)
+    assert fire_order[99] == (10, 16)
+    assert fire_order[198] == (9, 6)
+    assert fire_order[199] == (8, 2)
+    assert fire_order[200] == (10, 9)
+    assert fire_order[-1] == (11, 1)
 
 
 def _main():
-    path = os.path.join("..", "inputs", "day10_test0.txt")
-    print("Part 1:", find_best_position(path))
+    path = os.path.join("..", "inputs", "day10.txt")
+    _, rays, num_seen = find_best_position(path)
+    print("Part 1:", num_seen)
+
+    fire_order = fire_laser(rays)
+    point200 = fire_order[199]
+    print("Part 2:", point200.x*100 + point200.y)
 
 
 if __name__ == "__main__":
