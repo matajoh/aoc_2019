@@ -3,8 +3,8 @@
 import os
 import math
 from collections import namedtuple, OrderedDict
-from sortedcontainers import SortedList
 
+from sortedcontainers import SortedList
 import pytest
 
 class Point(namedtuple("Point", ["x", "y"])):

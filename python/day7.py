@@ -23,7 +23,7 @@ def _feedback(program, settings):
             if not (computer.needs_input or computer.is_halted):
                 all_halted = False
                 computer.step()
-                if computer.has_output:
+                if computer.num_outputs:
                     if i + 1 < len(computers):
                         computers[i+1].write(computer.read())
                     else:

@@ -146,9 +146,9 @@ class Computer:
         return self._outputs.pop(0)
 
     @property
-    def has_output(self) -> bool:
+    def num_outputs(self) -> bool:
         """ Returns whether the computer has produced output """
-        return self._outputs
+        return len(self._outputs)
 
     @property
     def needs_input(self) -> bool:
@@ -342,7 +342,7 @@ def test_outputs(program, expected):
     computer = Computer(program)
     computer.run()
     actual = []
-    while computer.has_output:
+    while computer.num_outputs:
         actual.append(computer.read())
 
     np.testing.assert_array_equal(actual, expected)
