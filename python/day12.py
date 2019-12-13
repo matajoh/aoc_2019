@@ -5,6 +5,11 @@ from collections import namedtuple
 import itertools
 
 import pytest
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.colors import cnames #pylint: disable=unused-import
+from matplotlib import animation
+from mpl_toolkits.mplot3d import Axes3D #pylint: disable=unused-import
 
 
 class Vector(namedtuple("Vector", ["x", "y", "z"])):
@@ -122,6 +127,15 @@ def _print_state(step, moons):
     print()
 
 
+def _do_step(moons):
+    for moon0, moon1 in itertools.combinations(moons, 2):
+        moon0.update_velocity(moon1)
+        moon1.update_velocity(moon0)
+
+    for moon in moons:
+        moon.update_position()
+
+
 def _simulate_movement(moons, steps, record=None):
     _print_state(0, moons)
     interval = steps // 10
@@ -129,12 +143,7 @@ def _simulate_movement(moons, steps, record=None):
         if record is not None:
             record.append([moon.position for moon in moons])
 
-        for moon0, moon1 in itertools.combinations(moons, 2):
-            moon0.update_velocity(moon1)
-            moon1.update_velocity(moon0)
-
-        for moon in moons:
-            moon.update_position()
+        _do_step(moons)
 
         if (step+1) % interval == 0:
             _print_state(step + 1, moons)
@@ -234,6 +243,66 @@ def test_find_reset_time(path, steps, expected):
     assert _find_reset_time(moons, steps) == expected
 
 
+def _orbit_animation(moons, num_frames=500, mp4=False):
+    frames = []
+    for _ in range(num_frames):
+        frames.append([moon.position for moon in moons])
+        _do_step(moons)
+    
+    frames = np.array(frames)
+    frames = frames.transpose(1, 0, 2)
+
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_axes([0, 0, 1, 1], projection='3d')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks([])
+
+    colors = plt.cm.jet(np.linspace(0, 1, len(moons))) #pylint: disable=no-member
+    lines = sum([ax.plot([], [], [], '-', c=c)
+                 for c in colors], [])
+    pts = sum([ax.plot([], [], [], 'o', c=c, markersize=10)
+               for c in colors], [])
+
+    ax.set_xlim((-100, 100))
+    ax.set_ylim((-100, 100))
+    ax.set_zlim((-100, 100))
+
+    ax.view_init(30, 0)
+
+    def init():
+        for line, pt in zip(lines, pts):
+            line.set_data([], [])
+            line.set_3d_properties([])
+    
+            pt.set_data([], [])
+            pt.set_3d_properties([])
+
+        return pts + lines
+
+    def animate(i):
+        for line, pt, frame in zip(lines, pts, frames):
+            x, y, z = frame[:i].T
+
+            line.set_data(x, y)
+            line.set_3d_properties(z)
+
+            pt.set_data(x[-1:], y[-1:])
+            pt.set_3d_properties(z[-1:])
+
+        ax.view_init(30, np.sin(i*.01)*45 + 45)
+        fig.canvas.draw()
+        return pts + lines
+
+    anim = animation.FuncAnimation(fig, animate, init_func=init,
+                                   frames=500, interval=30, blit=False)
+
+    if mp4:
+        anim.save('orbits.mp4', fps=15, extra_args=['-vcodec', 'libx264'])
+
+    plt.show()
+
+
 def _main():
     with open(_asset("day12.txt")) as file:
         initial_state = [Vector.parse(line) for line in file]
@@ -245,6 +314,9 @@ def _main():
 
     reset_time = _find_reset_time(moons, 300000)
     print("Part 2:", reset_time)
+
+    moons = [Moon(pos) for pos in initial_state]
+    _orbit_animation(moons, mp4=True)
 
 
 if __name__ == "__main__":
