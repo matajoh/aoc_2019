@@ -8,7 +8,7 @@ import glasskey as gk
 
 from common import asset
 
-TILE_CHARS = [' ', '#', '%', '=', 'o']
+TILE_CHARS = [' ', '#', '8', '=', 'o']
 
 
 class TileId(IntEnum):
@@ -16,7 +16,7 @@ class TileId(IntEnum):
     Empty = 0
     Wall = 1
     Block = 2
-    HorizontalPaddle = 3
+    Paddle = 3
     Ball = 4
 
 
@@ -27,15 +27,15 @@ class Tile(namedtuple("Tile", ["x", "y", "tile_id"])):
         return TILE_CHARS[self.tile_id.value]
 
 
-def _run_game(program, use_ai=True):
+def _run_game(program, use_ai=True, playable=False):
     program[0] = 2
     computer = Computer(program)
 
     gk.start()
     grid = gk.create_grid(28, 46, "Breakout")
-    grid.map_color('#', gk.Colors.Gray)
-    grid.map_color('%', gk.Colors.Green)
-    grid.map_color('=', gk.Colors.Blue)
+    grid.map_color(TILE_CHARS[TileId.Wall], gk.Colors.Gray)
+    grid.map_color(TILE_CHARS[TileId.Paddle], gk.Colors.Magenta)
+    grid.map_color(TILE_CHARS[TileId.Ball], gk.Colors.Magenta)
 
     paddle_x = 0
     ball_x = 0
@@ -49,12 +49,28 @@ def _run_game(program, use_ai=True):
                 y = computer.read()
                 if x > -1:
                     tile_id = TileId(computer.read())
-                    if tile_id == TileId.HorizontalPaddle:
-                        paddle_x = x
-                    elif tile_id == TileId.Ball:
-                        ball_x = x
+                    if tile_id == TileId.Block:
+                        if y < 5:
+                            color = gk.Colors.Purple
+                        elif y < 8:
+                            color = gk.Colors.Red
+                        elif y < 11:
+                            color = gk.Colors.Orange
+                        elif y < 14:
+                            color = gk.Colors.Yellow
+                        elif y < 17:
+                            color = gk.Colors.Green
+                        else:
+                            color = gk.Colors.Blue
 
-                    grid.draw(y+2, x, TILE_CHARS[tile_id])
+                        grid.draw(y+2, x, [gk.Letter(TILE_CHARS[TileId.Block], color)])
+                    else:
+                        if tile_id == TileId.Paddle:
+                            paddle_x = x
+                        elif tile_id == TileId.Ball:
+                            ball_x = x
+
+                        grid.draw(y+2, x, TILE_CHARS[tile_id])
                 else:
                     score = computer.read()
                     grid.draw(0, 0, str(score))
@@ -83,7 +99,8 @@ def _run_game(program, use_ai=True):
                 pressed = False
 
         grid.blit()
-        gk.next_frame(60)
+        if playable:
+            gk.next_frame()
 
     gk.stop()
 
