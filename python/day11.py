@@ -1,11 +1,12 @@
 """ Solution to day 11 """
 
-import os
 from collections import namedtuple
 from enum import Enum
 
-from intcode import Computer
 import glasskey as gk
+
+from intcode import Computer
+from common import asset
 
 ICONS = ['^', '>', 'v', '<']
 
@@ -165,7 +166,7 @@ def _part2(program, animated=False):
 
 
 def _main():
-    with open(os.path.join("..", "inputs", "day11.txt")) as file:
+    with open(asset("day11.txt")) as file:
         program = [int(value) for value in file.read().split(',')]
 
     _part1(program)

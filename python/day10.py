@@ -1,14 +1,19 @@
 """ Solution for day 10 """
 
-import os
+#pylint: disable=redefined-outer-name
+
 import math
 from collections import namedtuple, OrderedDict
 
 from sortedcontainers import SortedList
 import pytest
 
+from common import asset, read_tests
+
+
 class Point(namedtuple("Point", ["x", "y"])):
     """ Point class """
+
 
 class Ray(namedtuple("Ray", ["angle", "length", "start", "end"])):
     """ A ray from one point to another """
@@ -27,12 +32,12 @@ class Ray(namedtuple("Ray", ["angle", "length", "start", "end"])):
         return Ray(angle, length, start, end)
 
 
-def parse_points(path):
+def parse_points(lines):
     """ Parse the points into a list """
     points = []
-    with open(path) as file:
-        for y, line in enumerate(file):
-            points.extend([Point(x, y) for x, char in enumerate(line) if char == '#'])
+    for y, line in enumerate(lines):
+        points.extend([Point(x, y)
+                       for x, char in enumerate(line) if char == '#'])
 
     return points
 
@@ -41,7 +46,8 @@ def compute_rays(points):
     """ Compute all the rays from each point to every other point """
     rays = {}
     for start in points:
-        rays[start] = SortedList([Ray.create(start, end) for end in points if start != end])
+        rays[start] = SortedList([Ray.create(start, end)
+                                  for end in points if start != end])
 
     return rays
 
@@ -56,9 +62,8 @@ def compute_seen(rays):
     return list(seen.values())
 
 
-def find_best_position(path):
+def find_best_position(points):
     """ Find the position which can see the most points """
-    points = parse_points(path)
     rays = compute_rays(points)
     num_seen = {point: len(compute_seen(ray)) for point, ray in rays.items()}
     best = max(num_seen, key=num_seen.get)
@@ -80,24 +85,31 @@ def fire_laser(rays):
 
     return fire_order
 
-@pytest.mark.parametrize("path, expected", [
-    ("test0", ((3, 4), 8)),
-    ("test1", ((5, 8), 33)),
-    ("test2", ((1, 2), 35)),
-    ("test3", ((6, 3), 41)),
-    ("test4", ((11, 13), 210))
+
+@pytest.fixture
+def tests():
+    """ Tests fixture """
+    return read_tests("day10_tests.txt")
+
+
+@pytest.mark.parametrize("index, expected", [
+    (0, ((3, 4), 8)),
+    (1, ((5, 8), 33)),
+    (2, ((1, 2), 35)),
+    (3, ((6, 3), 41)),
+    (4, ((11, 13), 210))
 ])
-def test_find_best_position(path, expected):
+def test_find_best_position(tests, index, expected):
     """ Test """
-    path = os.path.join(os.path.dirname(__file__), "..", "inputs", "day10_" + path + ".txt")
-    best, _, num_seen = find_best_position(path)
+    points = parse_points(tests[index])
+    best, _, num_seen = find_best_position(points)
     assert (best, num_seen) == expected
 
 
-def test_fire_layer():
+def test_fire_layer(tests):
     """ Test """
-    path = os.path.join(os.path.dirname(__file__), "..", "inputs", "day10_test4.txt")
-    _, rays, _ = find_best_position(path)
+    points = parse_points(tests[4])
+    _, rays, _ = find_best_position(points)
     fire_order = fire_laser(rays)
     assert fire_order[0] == (11, 12)
     assert fire_order[1] == (12, 1)
@@ -113,8 +125,10 @@ def test_fire_layer():
 
 
 def _main():
-    path = os.path.join("..", "inputs", "day10.txt")
-    _, rays, num_seen = find_best_position(path)
+    with open(asset("day10.txt")) as file:
+        points = parse_points(file)
+
+    _, rays, num_seen = find_best_position(points)
     print("Part 1:", num_seen)
 
     fire_order = fire_laser(rays)

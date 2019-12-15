@@ -1,9 +1,10 @@
 """ Solution to Day 1 """
 
 import math
-import os
 
 import pytest
+
+from common import asset
 
 
 def fuelFor(mass: int) -> int:
@@ -41,7 +42,7 @@ def test_totalFuelFor(mass, fuel):
 
 
 def _main():
-    with open(os.path.join("..", "inputs", "day1.txt")) as file:
+    with open(asset("day1.txt")) as file:
         mass = [int(line) for line in file]
 
     fuel = sum([fuelFor(m) for m in mass])

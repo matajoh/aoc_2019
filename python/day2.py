@@ -1,8 +1,7 @@
 """ Solution to Day 2 """
 
-import os
-
 from intcode import Computer
+from common import asset
 
 
 def _part1(program):
@@ -24,7 +23,7 @@ def _part2(program, target):
 
 
 def _main():
-    with open(os.path.join("..", "inputs", "day2.txt")) as file:
+    with open(asset("day2.txt")) as file:
         program = [int(value) for value in file.read().split(',')]
 
     _part1(program)

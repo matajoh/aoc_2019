@@ -1,6 +1,7 @@
 """ Solution for day 12 """
 
-import os
+#pylint: disable=redefined-outer-name
+
 from collections import namedtuple
 import itertools
 
@@ -10,6 +11,8 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import cnames #pylint: disable=unused-import
 from matplotlib import animation
 from mpl_toolkits.mplot3d import Axes3D #pylint: disable=unused-import
+
+from common import asset, read_tests, compute_lcm
 
 
 class Vector(namedtuple("Vector", ["x", "y", "z"])):
@@ -193,52 +196,40 @@ def _find_periods(moons, steps, num_samples=100):
     return set(periods)
 
 
-def _compute_gcd(x, y):
-    while y:
-        x, y = y, x % y
-
-    return x
-
-
-def _compute_lcm(x, y):
-    lcm = (x*y)//_compute_gcd(x, y)
-
-    return lcm
-
-
 def _find_reset_time(moons, steps):
     periods = _find_periods(moons, steps)
     print("Unique periods:", periods)
     lcm = 1
     for period in periods:
-        lcm = _compute_lcm(lcm, period)
+        lcm = compute_lcm(lcm, period)
 
     return lcm
 
-def _asset(path):
-    return os.path.join(os.path.dirname(__file__), "..", "inputs", path)
+
+@pytest.fixture(scope="module")
+def tests():
+    """ Tests test fixture """
+    return read_tests("day12_tests.txt")
 
 
-@pytest.mark.parametrize("path, steps, expected", [
-    ("day12_test0.txt", 10, 179),
-    ("day12_test1.txt", 100, 1940)
+@pytest.mark.parametrize("index, steps, expected", [
+    (0, 10, 179),
+    (1, 100, 1940)
 ])
-def test_simulate_movement(path, steps, expected):
+def test_simulate_movement(tests, index, steps, expected):
     """ TEST """
-    with open(_asset(path)) as file:
-        moons = [Moon(Vector.parse(line)) for line in file]
+    moons = [Moon(Vector.parse(line)) for line in tests[index]]
 
     assert _simulate_movement(moons, steps) == expected
 
 
-@pytest.mark.parametrize("path, steps, expected", [
-    ("day12_test0.txt", 5000, 2772),
-    ("day12_test1.txt", 10000, 4686774924)
+@pytest.mark.parametrize("index, steps, expected", [
+    (0, 5000, 2772),
+    (1, 10000, 4686774924)
 ])
-def test_find_reset_time(path, steps, expected):
+def test_find_reset_time(tests, index, steps, expected):
     """ TEST """
-    with open(_asset(path)) as file:
-        moons = [Moon(Vector.parse(line)) for line in file]
+    moons = [Moon(Vector.parse(line)) for line in tests[index]]
 
     assert _find_reset_time(moons, steps) == expected
 
@@ -248,7 +239,7 @@ def _orbit_animation(moons, num_frames=500, mp4=False):
     for _ in range(num_frames):
         frames.append([moon.position for moon in moons])
         _do_step(moons)
-    
+
     frames = np.array(frames)
     frames = frames.transpose(1, 0, 2)
 
@@ -274,7 +265,7 @@ def _orbit_animation(moons, num_frames=500, mp4=False):
         for line, pt in zip(lines, pts):
             line.set_data([], [])
             line.set_3d_properties([])
-    
+
             pt.set_data([], [])
             pt.set_3d_properties([])
 
@@ -304,7 +295,7 @@ def _orbit_animation(moons, num_frames=500, mp4=False):
 
 
 def _main():
-    with open(_asset("day12.txt")) as file:
+    with open(asset("day12.txt")) as file:
         initial_state = [Vector.parse(line) for line in file]
 
     moons = [Moon(pos) for pos in initial_state]
@@ -315,8 +306,8 @@ def _main():
     reset_time = _find_reset_time(moons, 300000)
     print("Part 2:", reset_time)
 
-    moons = [Moon(pos) for pos in initial_state]
-    _orbit_animation(moons, mp4=True)
+    #moons = [Moon(pos) for pos in initial_state]
+    #_orbit_animation(moons, mp4=True)
 
 
 if __name__ == "__main__":

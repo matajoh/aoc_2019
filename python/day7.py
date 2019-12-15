@@ -1,11 +1,11 @@
 """ Solution to Day 7 """
 
-import os
 import itertools
 
 import pytest
 
 from intcode import Computer
+from common import asset
 
 
 def _feedback(program, settings):
@@ -78,7 +78,7 @@ def _part2(program, verbose=False):
 
 
 def _main():
-    with open(os.path.join("..", "inputs", "day7.txt")) as file:
+    with open(asset("day7.txt")) as file:
         program = [int(value) for value in file.read().split(',')]
 
     _part1(program)

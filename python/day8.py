@@ -1,9 +1,8 @@
 """ Solution for Day 8 """
 
-import os
-
 import numpy as np
-import matplotlib.pyplot as plt
+
+from common import asset
 
 
 def parse_image(text: str, rows: int, cols: int) -> np.ndarray:
@@ -53,7 +52,7 @@ def collapse(image: np.array) -> np.ndarray:
 
 
 def _main():
-    with open(os.path.join("..", "inputs", "day8.txt")) as file:
+    with open(asset("day8.txt")) as file:
         image = parse_image(file.read(), 6, 25)
 
     max_zero_row = np.argmin(count_by_layer(image, 0))
@@ -62,9 +61,9 @@ def _main():
     print("Part 1:", num_ones*num_twos)
 
     image = collapse(image)
-    print("Part 2")
-    plt.imshow(image)
-    plt.show()
+    print("Part 2:")
+    for line in image:
+        print("".join(['#' if value else '.' for value in line]))
 
 
 if __name__ == "__main__":

@@ -1,12 +1,11 @@
 """ Solution to Day 5 """
 
-import os
-
 from intcode import Computer
+from common import asset
 
 
 def _main():
-    with open(os.path.join("..", "inputs", "day5.txt")) as file:
+    with open(asset("day5.txt")) as file:
         memory = [int(value) for value in file.read().split(',')]
 
     computer = Computer(memory, verbose=True)
