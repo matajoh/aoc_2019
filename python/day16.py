@@ -1,71 +1,66 @@
-import itertools
-import sys
-import time
+""" Solution to Day 16 """
 
-import numpy as np
+import sys
+
 import pytest
 
 from common import asset
 
-def _compute_output_strided(input_signal, index):
-    num_repeats = index + 1
 
-    output = 0
-    end = len(input_signal)
-    pos_start = num_repeats - 1
-    neg_start = pos_start + 2*num_repeats
-    for i in range(num_repeats):
-        pos = np.sum(input_signal[pos_start+i:end:num_repeats*4])
-        neg = np.sum(input_signal[neg_start+i:end:num_repeats*4])
-        output += pos - neg
-    
-    return abs(output)%10
-
-def _compute_output_block(input_signal, index):
+def _compute_output_block(input_signal, index, offset):
     pattern = [0, 1, 0, -1]
     current = 0
     num_repeats = index + 1
     output = 0
     signal_length = len(input_signal)
     count = num_repeats - 1
-    start = 0
-    while start < signal_length:
+    pos = 0
+    while pos < signal_length:
         if pattern[current] != 0:
+            start = pos - offset
             end = min(start + count, signal_length)
-            val = np.sum(input_signal[start:end])
+            val = sum(input_signal[start:end])
             output += pattern[current]*val
-        
-        start += count
-        current = (current + 1)%4
+
+        pos += count
+        current = (current + 1) % 4
         count = num_repeats
-    
-    return abs(output)%10
 
-
-def _compute_output_optim(input_signal, index):
-    assert index >= len(input_signal)//2
-    output = np.sum(input_signal[index:])
-    return abs(output)%10
+    return abs(output) % 10
 
 
 def _fft_step(input_signal, output_signal, offset=0):
-    signal_length = len(input_signal)
+    signal_length = len(input_signal) + offset
     half_length = signal_length // 2
     for i in range(offset, half_length):
-        output_signal[i] = _compute_output_block(input_signal, i)
-    
+        output_signal[i] = _compute_output_block(input_signal, i, offset)
+
     output = 0
-    start = signal_length - 1
-    end = max(offset, half_length) - 1
+    start = signal_length - 1 - offset
+    end = max(0, half_length-offset) - 1
     for i in range(start, end, -1):
         output += input_signal[i]
-        output_signal[i] = abs(output)%10
+        output_signal[i] = abs(output) % 10
 
 
-def fft(signal, num_steps, use_offset=False):
+def _prep_signal(signal, offset, num_repeats):
+    total_length = len(signal)*num_repeats
+    length = total_length - offset
+    num_complete = length // len(signal)
+    signal *= num_complete
+    diff = length - len(signal)
+    if diff:
+        signal = signal[-diff:] + signal
+
+    zero = ord('0')
+    return [ord(char) - zero for char in signal]
+
+
+def fft(signal, num_steps, use_offset=False, num_repeats=1):
+    """ Computes the Flawed Frequency Transmission algorithm """
     offset = int(signal[:7]) if use_offset else 0
-    input_signal = np.frombuffer(signal.encode(), dtype=np.int8) - ord('0')
-    output_signal = np.zeros_like(input_signal)
+    input_signal = _prep_signal(signal, offset, num_repeats)
+    output_signal = [0]*len(input_signal)
     for _ in range(num_steps):
         _fft_step(input_signal, output_signal, offset)
         input_signal, output_signal = output_signal, input_signal
@@ -74,7 +69,7 @@ def fft(signal, num_steps, use_offset=False):
 
     sys.stdout.write('\n')
 
-    return "".join([str(val) for val in input_signal[offset:offset+8]])
+    return "".join([str(val) for val in input_signal[:8]])
 
 
 @pytest.mark.parametrize("signal, expected, num_steps", [
@@ -84,6 +79,7 @@ def fft(signal, num_steps, use_offset=False):
     ("69317163492948606335995924319873", "52432133", 100)
 ])
 def test_fft(signal, expected, num_steps):
+    """ Test """
     signal = fft(signal, num_steps)
     assert signal == expected
 
@@ -94,9 +90,9 @@ def test_fft(signal, expected, num_steps):
     ("03081770884921959731165446850517", "53553731")
 ])
 def test_fft2(signal, expected):
-    offset = int(signal[:7])
-    signal = fft(signal*10000, 100)
-    assert signal[offset:offset+8] == expected
+    """ Test """
+    signal = fft(signal, 100, True, 10000)
+    assert signal == expected
 
 
 def _main():
@@ -107,7 +103,7 @@ def _main():
     signal = "".join([str(val) for val in signal[:8]])
     print("Part 1:", signal)
 
-    signal = fft(original_signal*10000, 100, True)
+    signal = fft(original_signal, 100, True, 10000)
     print("Part 2:", signal)
 
 
