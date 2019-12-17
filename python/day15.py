@@ -16,8 +16,8 @@ from common import asset
 import glasskey as gk
 
 
-class Vector(namedtuple("Location", ["x", "y"])):
-    """ Location in the ship """
+class Vector(namedtuple("Vector", ["x", "y"])):
+    """ 2D Vector """
 
     @property
     def command(self):
@@ -30,13 +30,13 @@ class Vector(namedtuple("Location", ["x", "y"])):
     def __sub__(self, other):
         return Vector(self.x - other.x, self.y - other.y)
 
-    def neighbors(self) -> Iterable["Location"]:
-        """ The cardinal neighbors of this location """
+    def neighbors(self) -> Iterable["Vector"]:
+        """ The cardinal neighbors of this vector """
         return [self + move for move in Directions]
 
     @property
     def length(self):
-        """ L1 length of the location """
+        """ L1 length of the vector """
         return abs(self.x) + abs(self.y)
 
 
