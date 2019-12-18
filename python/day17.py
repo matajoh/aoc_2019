@@ -7,6 +7,7 @@ from io import StringIO
 
 from intcode import Computer
 from common import asset
+import glasskey as gk
 
 
 class Vector(namedtuple("Vector", ["x", "y"])):
@@ -63,6 +64,7 @@ class Robot:
         self.position = position
         self.direction = direction
         self.commands = []
+        self.order = []
 
     def valid_move(self, scaffolds):
         """ Returns the valid move from the current location """
@@ -92,6 +94,205 @@ class Robot:
         self.position += vector
         self.commands.append(str(vector.length))
 
+    def follow_scaffolds(self, scaffolds):
+        """ Follow the scaffolds to find the full sequence of commands """
+        num_scaffolds = len(scaffolds)
+        start = self.position
+        end = start
+        direction = self.valid_move(scaffolds)
+        visited = set([start])
+        self.order = [start]
+        while len(visited) < num_scaffolds:
+            loc = end + direction
+            if loc in scaffolds:
+                visited.add(loc)
+                self.order.append(loc)
+                end = loc
+            else:
+                self.add_segment(end - start)
+                self.order.append(end)
+                start = end
+                direction = self.valid_move(scaffolds)
+                if direction is None:
+                    break
+
+        if start != end:
+            self.add_segment(end - start)
+
+
+class Routine(namedtuple("Routine", ("main", "sub_a", "sub_b", "sub_c"))):
+    """ A vacuum robot movement routine """
+
+    @staticmethod
+    def _principal_period(s):
+        i = (s+s).find(s, 1, -1)
+        return None if i == -1 else s[:i]
+
+    @staticmethod
+    def _to_list(commands):
+        if isinstance(commands, str):
+            commands = commands.split(',')
+
+        routine = []
+        for command in commands:
+            if command in ('R', 'L'):
+                routine.append(command)
+            else:
+                routine.extend(['1']*int(command))
+
+        return " ".join(routine)
+
+    @staticmethod
+    def _to_text(routine):
+        parts = routine.split()
+        text = []
+        count = 0
+        for part in parts:
+            if part in ('R', 'L', 'A', 'B', 'C'):
+                if count:
+                    text.append(str(count))
+                    count = 0
+
+                text.append(part)
+            else:
+                count += 1
+
+        if count:
+            text.append(str(count))
+
+        return ",".join(text)
+
+    def _animation_labels(self, robot):
+        routine = self._to_list(robot.commands)
+        sub_a = self._to_list(self.sub_a)
+        sub_b = self._to_list(self.sub_b)
+        sub_c = self._to_list(self.sub_c)
+        labels = routine.replace(sub_a, " ".join(['A'] * len(sub_a.split())))
+        labels = labels.replace(sub_b, " ".join(['B'] * len(sub_b.split())))
+        labels = labels.replace(sub_c, " ".join(['C'] * len(sub_c.split())))
+        labels = labels.split()
+        return list(zip(robot.order, labels))
+
+    @staticmethod
+    def create(commands):
+        """ Create a movement routine from the raw command list """
+        routine = ",".join(commands)
+        routine = Routine._to_list(routine) + " "
+        parts = routine.split()
+        max_length = len(parts) // 2
+        for i in range(4, max_length):
+            sub_a = " ".join(parts[:i]) + " "
+            if routine.find(sub_a) == routine.rfind(sub_a):
+                break
+
+            routine_a = routine.replace(sub_a, "")
+            for j in range(4, max_length):
+                sub_b = " ".join(parts[-j:]) + " "
+                if routine.find(sub_b) == routine.rfind(sub_b):
+                    break
+
+                routine_ab = routine_a.replace(sub_b, "")
+                sub_c = Routine._principal_period(routine_ab)
+                if sub_c:
+                    main = routine.replace(sub_a, "A ")
+                    main = main.replace(sub_b, "B ")
+                    main = main.replace(sub_c, "C ")
+                    main = main.strip().replace(' ', ',') + '\n'
+                    if len(main) <= 20:
+                        sub_a = Routine._to_text(sub_a) + '\n'
+                        sub_b = Routine._to_text(sub_b) + '\n'
+                        sub_c = Routine._to_text(sub_c) + '\n'
+                        return Routine(main, sub_a, sub_b, sub_c)
+
+        return None
+
+    def run(self, program):
+        """ Run the movement routine on the robot """
+        program = program.copy()
+        program[0] = 2
+        computer = Computer(program)
+
+        while not computer.needs_input:
+            computer.step()
+
+        for char in "".join(self) + "n\n":
+            computer.write(ord(char))
+
+        val = None
+        while not computer.is_halted:
+            while not computer.num_outputs:
+                computer.step()
+
+            val = computer.read()
+            if val < 255:
+                sys.stdout.write(chr(val))
+
+        return val
+
+    @staticmethod
+    def draw(grid, lines, labels, frame):
+        """ Draw the routine as it animates """
+        if frame < 0:
+            return
+
+        for tile, label in labels[:frame]:
+            lines[tile.y][tile.x] = label
+
+        for row, line in enumerate(lines):
+            grid.draw(row, 0, "".join(line))
+
+        grid.blit()
+        gk.next_frame()
+
+    def animate(self, program, robot):
+        """ Animate the routine """
+        labels = self._animation_labels(robot)
+        program = program.copy()
+        program[0] = 2
+        computer = Computer(program)
+
+        while not computer.needs_input:
+            computer.step()
+
+        for char in "".join(self) + "y\n":
+            computer.write(ord(char))
+
+        gk.start()
+        rows = 37
+        cols = 45
+        grid = gk.create_grid(rows, cols, "Vacuum Robot")
+        grid.map_color('.', gk.Colors.Navy)
+        grid.map_color('#', gk.Colors.Gray)
+        grid.map_color('A', gk.Colors.Red)
+        grid.map_color('B', gk.Colors.Green)
+        grid.map_color('C', gk.Colors.Blue)
+        lines = [[' ']*cols for _ in range(rows)]
+        row = 0
+        col = 0
+        frame = -2
+        input("Press enter to begin animation...")
+        while not computer.is_halted:
+            while not computer.num_outputs:
+                computer.step()
+
+            val = computer.read()
+            if val < 255:
+                if val == ord('\n'):
+                    if col:
+                        row += 1
+                        col = 0
+                    else:
+                        self.draw(grid, lines, labels, frame)
+                        row = 0
+                        col = 0
+                        frame += 1
+                else:
+                    lines[row][col] = chr(val)
+                    col += 1
+
+        self.draw(grid, lines, labels, frame)
+        gk.stop()
+
 
 def _parse_scaffolds(text):
     lines = text.split('\n')
@@ -117,130 +318,6 @@ def _find_intersections(scaffolds):
 def _sum_of_alignment_parameters(scaffolds):
     return sum([intersection.alignment_parameter
                 for intersection in _find_intersections(scaffolds)])
-
-
-def _follow_scaffolds(scaffolds, robot):
-    num_scaffolds = len(scaffolds)
-    start = robot.position
-    end = start
-    direction = robot.valid_move(scaffolds)
-    visited = set([start])
-    while len(visited) < num_scaffolds:
-        loc = end + direction
-        if loc in scaffolds:
-            visited.add(loc)
-            end = loc
-        else:
-            robot.add_segment(end - start)
-            start = end
-            direction = robot.valid_move(scaffolds)
-            if direction is None:
-                break
-
-    if start != end:
-        robot.add_segment(end - start)
-
-
-def _to_routine_list(text):
-    parts = text.split(',')
-    routine = []
-    for part in parts:
-        if part in ('R', 'L'):
-            routine.append(part)
-        else:
-            routine.extend(['1']*int(part))
-
-    return " ".join(routine)
-
-
-def _to_routine_text(routine):
-    parts = routine.split()
-    text = []
-    count = 0
-    for part in parts:
-        if part in ('R', 'L', 'A', 'B', 'C'):
-            if count:
-                text.append(str(count))
-                count = 0
-
-            text.append(part)
-        else:
-            count += 1
-
-    if count:
-        text.append(str(count))
-
-    return ",".join(text)
-
-
-def _replace_subroutine(routine, sub_a, sub_b=None, sub_c=None):
-    routine = _to_routine_list(routine)
-    routine = routine.replace(_to_routine_list(sub_a), "A")
-    if sub_b:
-        routine = routine.replace(_to_routine_list(sub_b), "B")
-
-    if sub_c:
-        routine = routine.replace(_to_routine_list(sub_c), "C")
-
-    return _to_routine_text(routine)
-
-
-def _principal_period(s):
-    i = (s+s).find(s, 1, -1)
-    return None if i == -1 else s[:i]
-
-
-def _find_subroutines(routine):
-    routine = _to_routine_list(routine) + " "
-    parts = routine.split()
-    max_length = len(parts) // 2
-    for i in range(4, max_length):
-        sub_a = " ".join(parts[:i]) + " "
-        if routine.find(sub_a) == routine.rfind(sub_a):
-            break
-
-        routine_a = routine.replace(sub_a, "")
-        for j in range(4, max_length):
-            sub_b = " ".join(parts[-j:]) + " "
-            if routine.find(sub_b) == routine.rfind(sub_b):
-                break
-
-            routine_ab = routine_a.replace(sub_b, "")
-            sub_c = _principal_period(routine_ab)
-            if sub_c:
-                routine_abc = routine.replace(sub_a, "A ")
-                routine_abc = routine_abc.replace(sub_b, "B ")
-                routine_abc = routine_abc.replace(sub_c, "C ")
-                routine_abc = routine_abc.strip().replace(' ', ',') + '\n'
-                if len(routine_abc) <= 20:
-                    sub_a = _to_routine_text(sub_a) + '\n'
-                    sub_b = _to_routine_text(sub_b) + '\n'
-                    sub_c = _to_routine_text(sub_c) + '\n'
-                    return routine_abc, sub_a, sub_b, sub_c
-
-    return None
-
-
-def _run_routine(program, routine, sub_a, sub_b, sub_c):
-    program[0] = 2
-    computer = Computer(program)
-
-    while not computer.needs_input:
-        computer.step()
-
-    for char in routine + sub_a + sub_b + sub_c + "n\n":
-        computer.write(ord(char))
-
-    val = None
-    while not computer.is_halted:
-        while not computer.num_outputs:
-            computer.step()
-
-        val = computer.read()
-        if val < 255:
-            sys.stdout.write(chr(val))
-
-    return val
 
 
 TEST = """..#..........
@@ -288,11 +365,11 @@ def _main():
     scaffolds, robot = _parse_scaffolds(text)
     print("Part 1:", _sum_of_alignment_parameters(scaffolds))
 
-    _follow_scaffolds(scaffolds, robot)
-    routine = ",".join(robot.commands)
+    robot.follow_scaffolds(scaffolds)
+    routine = Routine.create(robot.commands)
+    print("Part 2:", routine.run(program))
 
-    routine, sub_a, sub_b, sub_c = _find_subroutines(routine)
-    print("Part 2:", _run_routine(program, routine, sub_a, sub_b, sub_c))
+    routine.animate(program, robot)
 
 
 if __name__ == "__main__":
