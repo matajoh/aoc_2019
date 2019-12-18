@@ -11,7 +11,7 @@ import heapq
 import numpy as np
 
 from intcode import Computer
-from common import asset
+from common import asset, a_star
 
 import glasskey as gk
 
@@ -46,51 +46,6 @@ Directions = [
     Vector(-1, 0),
     Vector(1, 0)
 ]
-
-
-def distance(lhs: Vector, rhs: Vector) -> int:
-    """ Compute the L1 distance between two vectors """
-    return (rhs - lhs).length
-
-
-def reconstruct_path(came_from, current):
-    """ Reconsruct the optimal path """
-    total_path = [current]
-
-    while current in came_from:
-        current = came_from[current]
-        total_path.append(current)
-
-    total_path.reverse()
-    return total_path
-
-
-def a_star(start, goal, nodes):
-    """ Implementation of a-star search """
-    came_from = {}
-    g_score = {start: 0}
-    f_score = {start: distance(start, goal)}
-    open_set = [(f_score[start], start)]
-
-    while open_set:
-        _, current = heapq.heappop(open_set)
-        if current == goal:
-            return reconstruct_path(came_from, current)
-
-        for neighbor in current.neighbors():
-            if neighbor not in nodes:
-                continue
-
-            tentative_g_score = g_score[current] + distance(current, neighbor)
-            if tentative_g_score < g_score.get(neighbor, sys.maxsize):
-                came_from[neighbor] = current
-                g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = g_score[neighbor] + \
-                    distance(neighbor, goal)
-                if neighbor not in open_set:
-                    heapq.heappush(open_set, (f_score[neighbor], neighbor))
-
-    raise ValueError("No path found from {} to {}".format(start, goal))
 
 
 class Status(IntEnum):
