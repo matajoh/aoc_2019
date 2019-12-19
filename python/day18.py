@@ -33,24 +33,6 @@ Directions = [
 ]
 
 
-class ActionOrder(namedtuple("ActionOrder", ["keys", "keys_set", "steps", "location"])):  
-    def add(self, key, steps, location):
-        return ActionOrder(self.keys + [key], self.keys_set | {key}, self.steps + steps, location)
-    
-    @property
-    def obtained(self):
-        return "".join(sorted(self.keys))
-    
-    def __contains__(self, key):
-        return key in self.keys_set
-    
-    def __lt__(self, other):
-        return self.steps < other.steps
-    
-    def __repr__(self):
-        return ", ".join([item for item in self.keys if item.islower()])
-
-
 class Cave:
     def __init__(self, lines):
         self.open = set()
@@ -60,7 +42,7 @@ class Cave:
         self.doors = set()
         self.item_loc = {}
         self.loc_item = {}
-        self.path_steps = {}
+        self.scores = {}
         for y, line in enumerate(lines):
             for x, char in enumerate(line.strip()):
                 loc = Vector(x, y)
@@ -82,49 +64,33 @@ class Cave:
                 else:
                     raise ValueError("Unexpected character: " + char)
     
-    def find_steps(self, order, key):
-        start = order.location
-        nodes = {self.item_loc[key] for key in order.keys}
-        nodes |= {self.item_loc[key.upper()] for key in order.keys if key.upper() in self.item_loc}
-        lookup = (start, order.obtained, key)
-        if lookup not in self.path_steps:
-            goal = self.item_loc[key]
-            nodes = self.open | nodes | {goal}
-            path = a_star(start, goal, nodes)
-            self.path_steps[lookup] = None if path is None else len(path) - 1
-        
-        return self.path_steps[lookup]    
+    def reachable(self, start, keys):
+        nodes = {self.item_loc[key] for key in keys}
+        nodes |= {self.item_loc[key.upper()] for key in keys if key.upper() in self.item_loc}
+        for goal in self.keys:
+            key = self.loc_item[goal]
+            if key in keys:
+                continue
+                
+            path = a_star(start, goal, self.open | nodes | {goal})
+            if path:
+                yield goal, key, len(path) - 1
 
+    def score(self, start, keys):        
+        obtained = "".join(sorted(keys))
+        lookup = (start, obtained)
+        if lookup not in self.scores:
+            if len(keys) == len(self.keys):
+                return 0
+
+            self.scores[lookup] = min([self.score(goal, {new_key} | keys) + steps
+                                      for goal, new_key, steps in self.reachable(start, keys)])
+        
+        return self.scores[lookup]    
 
     def find_keys(self):
-        min_steps = sys.maxsize
-        min_order = None
-        orders = [ActionOrder([], set(), 0, self.entrance)]
-        while orders:
-            order = orders.pop()
-            if len(order.keys) == len(self.keys):
-                if order.steps < min_steps:
-                    min_steps = order.steps
-                    min_order = order
-                    print(min_steps, min_order)
+        return self.score(self.entrance, set())
 
-                continue
-
-            to_add = []
-            for goal in self.keys:
-                key = self.loc_item[goal]
-                if key in order:
-                    continue
-
-                steps = self.find_steps(order, key)
-                if steps is not None and steps < min_steps:
-                    to_add.append(order.add(key, steps, goal))
-            
-            if to_add:
-                to_add.sort(key=lambda order: order.steps, reverse=True)
-                orders.extend(to_add)
-
-        return min_order
 
 @pytest.fixture(scope="module")
 def tests():
@@ -140,8 +106,7 @@ def tests():
 ])
 def test_find_key(tests, index, expected):
     cave = Cave(tests[index])
-    action_list = cave.find_keys()
-    assert action_list.steps == expected
+    assert cave.find_keys() == expected
 
 
 def _main():
@@ -149,8 +114,7 @@ def _main():
         #cave = Cave(file)
         cave = Cave(read_tests("day18_tests.txt")[3])
     
-    action_list = cave.find_keys()
-    print("Part 1:", action_list.steps)
+    print("Part 1:", cave.find_keys())
 
 
 if __name__ == "__main__":
