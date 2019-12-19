@@ -1,3 +1,4 @@
+import sys
 from collections import namedtuple
 
 import pytest
@@ -32,18 +33,22 @@ Directions = [
 ]
 
 
-class ActionOrder(namedtuple("ActionOrder", ["order", "steps", "location"])):  
-    def add(self, item, steps, location):
-        return ActionOrder(self.order + [item], self.steps + steps, location)
+class ActionOrder(namedtuple("ActionOrder", ["keys", "keys_set", "steps", "location"])):  
+    def add(self, key, steps, location):
+        return ActionOrder(self.keys + [key], self.keys_set | {key}, self.steps + steps, location)
     
-    def __contains__(self, item):
-        return item in self.order
+    @property
+    def obtained(self):
+        return "".join(sorted(self.keys))
+    
+    def __contains__(self, key):
+        return key in self.keys_set
     
     def __lt__(self, other):
         return self.steps < other.steps
     
     def __repr__(self):
-        return ", ".join([item for item in self.order if item.islower()])
+        return ", ".join([item for item in self.keys if item.islower()])
 
 
 class Cave:
@@ -51,7 +56,10 @@ class Cave:
         self.open = set()
         self.entrance = None
         self.walls = set()
-        self.items = {}
+        self.keys = set()
+        self.doors = set()
+        self.item_loc = {}
+        self.loc_item = {}
         self.path_steps = {}
         for y, line in enumerate(lines):
             for x, char in enumerate(line.strip()):
@@ -64,46 +72,59 @@ class Cave:
                     self.entrance = loc
                     self.open.add(loc)
                 elif char.isalpha():
-                    self.items[char] = loc
+                    if char.islower():
+                        self.keys.add(loc)
+                    else:
+                        self.doors.add(loc)
+                    
+                    self.item_loc[char] = loc
+                    self.loc_item[loc] = char
                 else:
                     raise ValueError("Unexpected character: " + char)
     
-    def find_steps(self, action_list, item):
-        start = action_list.location
-        nodes = {self.items[item] for item in action_list.order}
-        key = (start, tuple(nodes), item)
-        if key not in self.path_steps:
-            goal = self.items[item]
+    def find_steps(self, order, key):
+        start = order.location
+        nodes = {self.item_loc[key] for key in order.keys}
+        nodes |= {self.item_loc[key.upper()] for key in order.keys if key.upper() in self.item_loc}
+        lookup = (start, order.obtained, key)
+        if lookup not in self.path_steps:
+            goal = self.item_loc[key]
             nodes = self.open | nodes | {goal}
             path = a_star(start, goal, nodes)
-            self.path_steps[key] = None if path is None else len(path) - 1
+            self.path_steps[lookup] = None if path is None else len(path) - 1
         
-        return self.path_steps[key]    
+        return self.path_steps[lookup]    
 
 
     def find_keys(self):
-        complete = []
-        action_lists = [ActionOrder([], 0, self.entrance)]
-        while action_lists:
-            action_list = action_lists.pop()
-            if len(action_list.order) == len(self.items):
-                complete.append(action_list)
+        min_steps = sys.maxsize
+        min_order = None
+        orders = [ActionOrder([], set(), 0, self.entrance)]
+        while orders:
+            order = orders.pop()
+            if len(order.keys) == len(self.keys):
+                if order.steps < min_steps:
+                    min_steps = order.steps
+                    min_order = order
+                    print(min_steps, min_order)
+
                 continue
 
-            for item, goal in self.items.items():
-                if item in action_list:
+            to_add = []
+            for goal in self.keys:
+                key = self.loc_item[goal]
+                if key in order:
                     continue
 
-                if item.isupper() and item.lower() not in action_list:
-                    continue
-
-                steps = self.find_steps(action_list, item)
-                if steps:
-                    action_lists.append(action_list.add(item, steps, self.items[item]))
+                steps = self.find_steps(order, key)
+                if steps is not None and steps < min_steps:
+                    to_add.append(order.add(key, steps, goal))
             
-            print(len(action_lists))
+            if to_add:
+                to_add.sort(key=lambda order: order.steps, reverse=True)
+                orders.extend(to_add)
 
-        return min(complete)
+        return min_order
 
 @pytest.fixture(scope="module")
 def tests():
@@ -125,7 +146,8 @@ def test_find_key(tests, index, expected):
 
 def _main():
     with open(asset("day18.txt")) as file:
-        cave = Cave(file)
+        #cave = Cave(file)
+        cave = Cave(read_tests("day18_tests.txt")[3])
     
     action_list = cave.find_keys()
     print("Part 1:", action_list.steps)
