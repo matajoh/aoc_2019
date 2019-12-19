@@ -10,6 +10,7 @@ import pytest
 
 class Memory:
     """ Class representing the memory of an Intcode computer """
+
     def __init__(self, values):
         self._lookup = dict(enumerate(values))
 
@@ -126,6 +127,20 @@ class Computer:
         self._memory = Memory(self._initial_memory)
         self._counter = 0
         self._relative_base = 0
+
+    def run_to_input(self):
+        """ Run until the computer requests input """
+        while not self.needs_input:
+            self.step()
+
+    def run_to_output(self):
+        """ Run until the computer produces an output """
+        while not self.num_outputs:
+            self.step()
+
+    def clear_output(self):
+        """ Clear the outputs """
+        self._outputs.clear()
 
     @property
     def memory(self) -> List[int]:
