@@ -2,6 +2,8 @@
 
 import os
 import sys
+from collections import namedtuple
+from functools import lru_cache
 from typing import List
 import heapq
 
@@ -54,16 +56,53 @@ def reconstruct_path(came_from, current):
     return total_path
 
 
-def distance(lhs, rhs) -> int:
-    """ Compute the L1 distance between two vectors """
-    return (rhs - lhs).length
+
+class Vector(namedtuple("Vector", ["x", "y"])):
+    """ 2D Vector """
+
+    def __add__(self, other):
+        return Vector(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other):
+        return Vector(self.x - other.x, self.y - other.y)
+
+    @property
+    @lru_cache(maxsize=None)
+    def neighbors(self):
+        """ The cardinal neighbors of this vector """
+        return {
+            Vector(self.x, self.y - 1),
+            Vector(self.x, self.y + 1),
+            Vector(self.x - 1, self.y),
+            Vector(self.x + 1, self.y)
+        }
+
+    @property
+    def length(self):
+        """ L1 length of the vector """
+        return abs(self.x) + abs(self.y)
 
 
-def a_star(start, goal, nodes):
+class Neighbors:
+    def __init__(self, nodes):
+        self._valid = nodes
+    
+    def __call__(self, vec):
+        return vec.neighbors & self._valid
+
+
+def a_star(start, goal, neighbors, distance=None, heuristic=None):
     """ Implementation of a-star search """
+   
+    if distance is None:
+        distance = lambda lhs, rhs: 1
+
+    if heuristic is None:
+        heuristic = lambda lhs, rhs: (lhs - rhs).length   
+
     came_from = {}
     g_score = {start: 0}
-    f_score = {start: distance(start, goal)}
+    f_score = {start: heuristic(start, goal)}
     open_set = [(f_score[start], start)]
 
     while open_set:
@@ -71,16 +110,12 @@ def a_star(start, goal, nodes):
         if current == goal:
             return reconstruct_path(came_from, current)
 
-        for neighbor in current.neighbors():
-            if neighbor not in nodes:
-                continue
-
+        for neighbor in neighbors(current):
             tentative_g_score = g_score[current] + distance(current, neighbor)
             if tentative_g_score < g_score.get(neighbor, sys.maxsize):
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = g_score[neighbor] + \
-                    distance(neighbor, goal)
+                f_score[neighbor] = g_score[neighbor] + heuristic(neighbor, goal)
                 if neighbor not in open_set:
                     heapq.heappush(open_set, (f_score[neighbor], neighbor))
 
