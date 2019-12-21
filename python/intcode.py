@@ -1,5 +1,6 @@
 """ Module providing an implementation of the Intcode computer """
 
+import sys
 from enum import IntEnum
 from typing import List, Mapping
 from collections import namedtuple
@@ -121,6 +122,20 @@ class Computer:
             9: Operation(9, self.relative_base_offset, 1, 0),
             99: None
         }
+
+    def print_ascii(self):
+        """ Print all of the output to the console """
+        while self.num_outputs:
+            val = self.read()
+            if val < 255:
+                sys.stdout.write(chr(val))
+            else:
+                print(val)
+
+    def write_ascii(self, chars):
+        """ Write all of the ASCII characters to the computer input """
+        for char in chars:
+            self.write(ord(char))
 
     def reset(self):
         """ Reset the computer """
