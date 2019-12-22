@@ -130,12 +130,15 @@ class Computer:
             if val < 255:
                 sys.stdout.write(chr(val))
             else:
-                print(val)
+                return val
+
+        return None
 
     def write_ascii(self, chars):
         """ Write all of the ASCII characters to the computer input """
         for char in chars:
             self.write(ord(char))
+            sys.stdout.write(char)
 
     def reset(self):
         """ Reset the computer """

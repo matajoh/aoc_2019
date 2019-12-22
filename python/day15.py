@@ -1,43 +1,14 @@
 """ Solution for day 15 """
 
-import sys
-import os
-
 from collections import namedtuple
-from typing import Iterable
 from enum import IntEnum
-import heapq
 
 import numpy as np
 
 from intcode import Computer
-from common import asset, a_star
+from common import asset, a_star, Vector, Neighbors
 
 import glasskey as gk
-
-
-class Vector(namedtuple("Vector", ["x", "y"])):
-    """ 2D Vector """
-
-    @property
-    def command(self):
-        """ The command needed to move in a direction """
-        return Directions.index(self) + 1
-
-    def __add__(self, other):
-        return Vector(self.x + other.x, self.y + other.y)
-
-    def __sub__(self, other):
-        return Vector(self.x - other.x, self.y - other.y)
-
-    def neighbors(self) -> Iterable["Vector"]:
-        """ The cardinal neighbors of this vector """
-        return [self + move for move in Directions]
-
-    @property
-    def length(self):
-        """ L1 length of the vector """
-        return abs(self.x) + abs(self.y)
 
 
 Directions = [
@@ -46,6 +17,9 @@ Directions = [
     Vector(-1, 0),
     Vector(1, 0)
 ]
+
+def _to_command(vec):
+    return Directions.index(vec) + 1
 
 
 class Status(IntEnum):
@@ -121,8 +95,7 @@ class Sector(namedtuple("Sector", ["walls", "empty", "oxygen_system"])):
             system from the origin. """
         start = Vector(0, 0)
         goal = self.oxygen_system
-        nodes = self.empty
-        return len(a_star(start, goal, nodes)) - 1
+        return len(a_star(start, goal, Neighbors(self.empty))) - 1
 
     def draw(self, drone=Vector(0, 0)):
         """ Draw the sector to the console """
@@ -164,7 +137,7 @@ class RepairDrone:
         self._empty = set()
         self._oxygen_system = None
         while locs:
-            loc = locs.pop(0)
+            loc = locs.pop()
             iteration += 1
             if loc in self._walls or loc in self._empty:
                 continue
@@ -183,7 +156,7 @@ class RepairDrone:
                 self._oxygen_system = loc
 
             self._empty.add(loc)
-            locs = loc.neighbors() + locs
+            locs.extend(loc.neighbors())
 
         return Sector(self._walls, self._empty, self._oxygen_system)
 
@@ -198,16 +171,15 @@ class RepairDrone:
         """ Find the shortest path to a location """
         start = self.location
         goal = location
-        nodes = list(self._empty) + [location]
-        return a_star(start, goal, nodes)
+        return a_star(start, goal, Neighbors(self._empty | {location}))
 
     def move_to(self, location):
         """ Move to the specified location """
         if (location - self.location).length == 1:
-            commands = [(location - self.location).command]
+            commands = [_to_command(location - self.location)]
         else:
             path = self.find_shortest_path(location)
-            commands = [(pos1 - pos0).command for pos0,
+            commands = [_to_command(pos1 - pos0) for pos0,
                         pos1 in zip(path[:-1], path[1:])]
 
         status = Status.Empty
@@ -296,12 +268,7 @@ def _main():
         program = [int(code) for code in file.read().split(',')]
 
     robot = RepairDrone(program)
-    if os.path.exists("sector.npz"):
-        sector = Sector.load("sector.npz")
-    else:
-        sector = robot.explore()
-        sector.save("sector.npz")
-
+    sector = robot.explore()
     sector.draw()
     print("Part 1:", sector.steps_to_oxygen())
     print("Part 2:", sector.fill())

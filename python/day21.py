@@ -34,18 +34,16 @@ def _run_assembler(program, assembler):
     while not computer.is_halted:
         computer.step()
 
-    computer.print_ascii()
+    return computer.print_ascii()
 
 
 def _main():
     with open(asset("day21.txt")) as file:
         program = [int(part) for part in file.read().split(',')]
 
-    print("Part 1:")
-    _run_assembler(program, ASSEMBLER0)
+    print("Part 1:", _run_assembler(program, ASSEMBLER0))
 
-    print("Part 2:")
-    _run_assembler(program, ASSEMBLER1)
+    print("Part 2:", _run_assembler(program, ASSEMBLER1))
 
 
 if __name__ == "__main__":

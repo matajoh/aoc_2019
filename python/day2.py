@@ -7,19 +7,40 @@ from common import asset
 def _part1(program):
     computer = Computer(program)
     computer.run(12, 2)
-    print("part1:", computer.memory[0])
+    print("Part 1:", computer.memory[0])
+
+
+def _search_noun(computer, start, end, target):
+    while end != start + 1:
+        mid = (start + end) // 2
+        computer.run(mid, 0)
+        if computer.memory[0] <= target:
+            start = mid
+        else:
+            end = mid
+
+    return start
+
+
+def _search_verb(computer, noun, start, end, target):
+    while end != start + 1:
+        mid = (start + end) // 2
+        computer.run(noun, mid)
+        if computer.memory[0] <= target:
+            start = mid
+        else:
+            end = mid
+
+    return start
 
 
 def _part2(program, target):
     computer = Computer(program)
-    for noun in range(100):
-        for verb in range(100):
-            computer.run(noun, verb)
-            if computer.memory[0] == target:
-                print("part2:", noun*100 + verb)
-                return
-
-    raise ValueError("Unable to find a valid noun/verb")
+    noun = _search_noun(computer, 0, 100, target)
+    verb = _search_verb(computer, noun, 0, 100, target)
+    computer.run(noun, verb)
+    assert computer.memory[0] == target
+    print("Part 2:", noun*100 + verb)
 
 
 def _main():

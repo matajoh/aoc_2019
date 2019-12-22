@@ -56,25 +56,23 @@ def reconstruct_path(came_from, current):
     return total_path
 
 
-
 class Vector(namedtuple("Vector", ["x", "y"])):
     """ 2D Vector """
 
     def __add__(self, other):
-        return Vector(self.x + other.x, self.y + other.y)
+        return self.__class__(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other):
-        return Vector(self.x - other.x, self.y - other.y)
+        return self.__class__(self.x - other.x, self.y - other.y)
 
-    @property
     @lru_cache(maxsize=None)
     def neighbors(self):
         """ The cardinal neighbors of this vector """
         return {
-            Vector(self.x, self.y - 1),
-            Vector(self.x, self.y + 1),
-            Vector(self.x - 1, self.y),
-            Vector(self.x + 1, self.y)
+            self.__class__(self.x, self.y - 1),
+            self.__class__(self.x, self.y + 1),
+            self.__class__(self.x - 1, self.y),
+            self.__class__(self.x + 1, self.y)
         }
 
     @property
@@ -84,21 +82,22 @@ class Vector(namedtuple("Vector", ["x", "y"])):
 
 
 class Neighbors:
-    def __init__(self, nodes):
-        self._valid = nodes
-    
+    """ Callable which only returns valid neighbors """
+    def __init__(self, valid):
+        self._valid = valid
+
     def __call__(self, vec):
-        return vec.neighbors & self._valid
+        return vec.neighbors() & self._valid
 
 
 def a_star(start, goal, neighbors, distance=None, heuristic=None):
     """ Implementation of a-star search """
-   
+
     if distance is None:
         distance = lambda lhs, rhs: 1
 
     if heuristic is None:
-        heuristic = lambda lhs, rhs: (lhs - rhs).length   
+        heuristic = lambda lhs, rhs: (lhs - rhs).length
 
     came_from = {}
     g_score = {start: 0}
@@ -115,7 +114,8 @@ def a_star(start, goal, neighbors, distance=None, heuristic=None):
             if tentative_g_score < g_score.get(neighbor, sys.maxsize):
                 came_from[neighbor] = current
                 g_score[neighbor] = tentative_g_score
-                f_score[neighbor] = g_score[neighbor] + heuristic(neighbor, goal)
+                f_score[neighbor] = g_score[neighbor] + \
+                    heuristic(neighbor, goal)
                 if neighbor not in open_set:
                     heapq.heappush(open_set, (f_score[neighbor], neighbor))
 

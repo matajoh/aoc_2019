@@ -1,9 +1,15 @@
+""" Solution to day 20 """
+
 import pytest
 
 from common import Vector, a_star, read_tests, asset
 
+#pylint: disable=redefined-outer-name
+
 
 class DonutMaze:
+    """ Class representing a Plutonian donut maze """
+
     def __init__(self, lines):
         self.walls = set()
         self.open = set()
@@ -24,11 +30,14 @@ class DonutMaze:
                     self.open.add(loc)
                 elif char.isalpha():
                     portals[loc] = char
-        
+
+        self._init_portals(portals)
+
+    def _init_portals(self, portals):
         for loc, portal in portals.items():
             pair = None
             entrance = None
-            for neighbor in loc.neighbors:
+            for neighbor in loc.neighbors():
                 pair = portals.get(neighbor, pair)
                 if neighbor in self.open:
                     entrance = neighbor
@@ -36,10 +45,10 @@ class DonutMaze:
             name = "".join(sorted([portal, pair]))
             if name not in self.portals:
                 self.portals[name] = []
-            
+
             if entrance:
                 self.portals[name].append(entrance)
-        
+
         for portal, entrances in self.portals.items():
             assert len(entrances) <= 2
 
@@ -65,29 +74,34 @@ class DonutMaze:
         return warp.x in (2, self.cols-3) or warp.y in (2, self.rows-3)
 
     def min_steps(self):
+        """ Return the minimum number of steps from 'AA' to 'ZZ' """
         start = self.portals['AA'][0]
         goal = self.portals['ZZ'][0]
 
         def _neighbors(vec):
-            neighbors = list(vec.neighbors & self.open)
+            neighbors = list(vec.neighbors() & self.open)
             if vec in self.warps:
                 neighbors.append(self.warps[vec])
 
             return neighbors
-        
-        def _heuristic(lhs, rhs):
+
+        def _heuristic(*_):
             return 0
 
         path = a_star(start, goal, neighbors=_neighbors, heuristic=_heuristic)
         return len(path) - 1
 
     def min_steps_recursive(self):
+        """ Compute the minimum steps from 'AA' to 'ZZ' taking into
+            account the recursive nature of the maze.
+        """
         start = (self.portals['AA'][0], 0)
         goal = (self.portals['ZZ'][0], 0)
 
         def _neighbors(loc):
             vec, level = loc
-            neighbors = [(neighbor, level) for neighbor in vec.neighbors & self.open]
+            neighbors = [(neighbor, level)
+                         for neighbor in vec.neighbors() & self.open]
             if vec in self.warps:
                 if vec in self.outer_warps and level > 0:
                     neighbors.append((self.warps[vec], level - 1))
@@ -95,8 +109,8 @@ class DonutMaze:
                     neighbors.append((self.warps[vec], level + 1))
 
             return neighbors
-        
-        def _heuristic(lhs, rhs):
+
+        def _heuristic(*_):
             return 0
 
         path = a_star(start, goal, neighbors=_neighbors, heuristic=_heuristic)
@@ -105,6 +119,7 @@ class DonutMaze:
 
 @pytest.fixture(scope="module")
 def tests():
+    """ Fixture """
     return read_tests("day20_tests.txt")
 
 
@@ -113,6 +128,7 @@ def tests():
     (1, 58)
 ])
 def test_min_steps(tests, index, expected):
+    """ Test """
     maze = DonutMaze(tests[index])
     assert maze.min_steps() == expected
 
@@ -122,6 +138,7 @@ def test_min_steps(tests, index, expected):
     (2, 396)
 ])
 def test_min_steps_recursive(tests, index, expected):
+    """ Test """
     maze = DonutMaze(tests[index])
     assert maze.min_steps_recursive() == expected
 
@@ -129,7 +146,7 @@ def test_min_steps_recursive(tests, index, expected):
 def _main():
     with open(asset("day20.txt")) as file:
         maze = DonutMaze(list(file))
-    
+
     print("Part 1:", maze.min_steps())
     print("Part 2:", maze.min_steps_recursive())
 

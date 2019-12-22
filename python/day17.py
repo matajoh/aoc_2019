@@ -2,31 +2,19 @@
 
 import sys
 from collections import namedtuple
-from typing import Set
 from io import StringIO
 
 from intcode import Computer
-from common import asset
+from common import asset, Vector
 import glasskey as gk
 
 
-class Vector(namedtuple("Vector", ["x", "y"])):
-    """ 2D Vector """
-
-    def __add__(self, other):
-        return Vector(self.x + other.x, self.y + other.y)
-
-    def __sub__(self, other):
-        return Vector(self.x - other.x, self.y - other.y)
-
-    def find_neighbors(self) -> Set["Vector"]:
-        """ The cardinal neighbors of this vector """
-        return {self + move for move in DIRECTIONS}
+class Position(Vector):
+    """ 2D position """
 
     def is_intersection(self, scaffolds):
         """ Tests if this scaffold is an intersection """
-        neighbors = self.find_neighbors()
-        return len(neighbors & scaffolds) == 4
+        return len(self.neighbors() & scaffolds) == 4
 
     @property
     def alignment_parameter(self):
@@ -42,16 +30,16 @@ class Vector(namedtuple("Vector", ["x", "y"])):
     def direction(self):
         """ The direction of the vector """
         assert self.x == 0 or self.y == 0
-        norm = Vector(-1 if self.x < 0 else (1 if self.x > 0 else 0),
-                      -1 if self.y < 0 else (1 if self.y > 0 else 0))
+        norm = Position(-1 if self.x < 0 else (1 if self.x > 0 else 0),
+                        -1 if self.y < 0 else (1 if self.y > 0 else 0))
         return DIRECTIONS.index(norm)
 
 
 DIRECTIONS = [
-    Vector(0, -1),
-    Vector(1, 0),
-    Vector(0, 1),
-    Vector(-1, 0)
+    Position(0, -1),
+    Position(1, 0),
+    Position(0, 1),
+    Position(-1, 0)
 ]
 
 ROBOT = "^>v<"
@@ -80,9 +68,9 @@ class Robot:
 
         return None
 
-    def add_segment(self, vector):
+    def add_segment(self, pos):
         """ Adds a segment to the robots path """
-        direction = vector.direction
+        direction = pos.direction
         if direction == (self.direction - 1) % 4:
             self.commands.append("L")
         elif direction == (self.direction + 1) % 4:
@@ -91,8 +79,8 @@ class Robot:
             raise AssertionError("Invalid direction")
 
         self.direction = direction
-        self.position += vector
-        self.commands.append(str(vector.length))
+        self.position += pos
+        self.commands.append(str(pos.length))
 
     def follow_scaffolds(self, scaffolds):
         """ Follow the scaffolds to find the full sequence of commands """
@@ -301,10 +289,10 @@ def _parse_scaffolds(text):
     for y, line in enumerate(lines):
         for x, char in enumerate(line):
             if char != '.':
-                scaffolds.add(Vector(x, y))
+                scaffolds.add(Position(x, y))
 
             if char in ROBOT:
-                robot = Robot(Vector(x, y), ROBOT.index(char))
+                robot = Robot(Position(x, y), ROBOT.index(char))
 
     return scaffolds, robot
 
@@ -369,7 +357,7 @@ def _main():
     routine = Routine.create(robot.commands)
     print("Part 2:", routine.run(program))
 
-    routine.animate(program, robot)
+    #routine.animate(program, robot)
 
 
 if __name__ == "__main__":
