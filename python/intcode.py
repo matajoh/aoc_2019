@@ -143,6 +143,8 @@ class Computer:
     def reset(self):
         """ Reset the computer """
         self._memory = Memory(self._initial_memory)
+        self._inputs.clear()
+        self._outputs.clear()
         self._counter = 0
         self._relative_base = 0
 
