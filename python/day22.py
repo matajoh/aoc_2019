@@ -8,7 +8,6 @@ class Deck:
         self.cards = None
         self._temp = None
         self._num_cards = num_cards
-        self.reset()
     
     def reset(self):
         self.cards = list(range(self._num_cards))
@@ -16,19 +15,25 @@ class Deck:
     
     def deal_into_new_stack(self):
         self.cards.reverse()
+        return self.cards
     
     def cut(self, n):
         self._temp[:-n] = self.cards[n:]
         self._temp[-n:] = self.cards[:n]
         self.cards, self._temp = self._temp, self.cards
+        return self.cards
     
     def deal_with_increment(self, n):
         for i, card in enumerate(self.cards):
             self._temp[(i*n)%self._num_cards] = card
         
         self.cards, self._temp = self._temp, self.cards
+        return self.cards
     
     def shuffle(self, lines):
+        if self.cards is None:
+            self.reset()
+
         for line in lines:
             if line.startswith("deal into new stack"):
                 self.deal_into_new_stack()
@@ -104,17 +109,123 @@ def test_shuffle(tests, index, expected):
         assert actual == expected, "{} != {} at index {}".format(actual, expected, i)
 
 
+def find_period(num_cards, shuffle):
+    deck = Deck(num_cards)
+    deck.reset()
+    shuffle(deck)
+    test = sum(card == 0 for card in deck.cards)
+    if test > 1:
+        raise ValueError("Invalid deck/shuffle combination")
+
+    original_order = list(range(num_cards))
+    period = 1
+    for i in range(100):
+        if deck.cards == original_order:
+            break
+
+        shuffle(deck)
+        period += 1
+    
+    if period == 101:
+        raise ValueError("Period not found")
+
+    return period      
+
 
 def _main():
     with open(asset("day22.txt")) as file:
         lines = list(file)
     
+    
     deck = Deck(10007)
-    deck.shuffle(file)
+    deck.shuffle(lines)
     print("Part 1:", deck.cards.index(2019))
+
+    #deck = Deck(119315717514047)
     
-    
+    num_shuffles = 101741582076661
+    index = num_shuffles % period
+    print(index)
 
 
+def _explore(name, arg, start=10, end=100):
+    if name == "cut":
+        shuffle = lambda deck: deck.cut(arg)
+    elif name == "inc":
+        shuffle = lambda deck: deck.deal_with_increment(arg)
+    elif name == "test":
+        lines = read_tests("day22_tests.txt")
+        shuffle = lambda deck: deck.shuffle(lines[arg])
+    elif name == "raw":
+        shuffle = lambda deck: deck.shuffle(arg)
+    else:
+        raise ValueError("Unknown shuffle" + name)
+
+    points = []
+    for num_cards in range(start, end):
+        try:
+            period = find_period(num_cards, shuffle)
+            print(num_cards, period)
+            points.append((num_cards, period))
+        except ValueError:
+            points.append((num_cards, -1))
+
+    return points
+
+
+def _write_csv(name, data):
+    import csv
+
+    with open(name, "w", newline="") as file:
+        writer = csv.writer(file)
+        for row in data:
+            writer.writerow(row)
+
+
+def _find_equiv(num_cards=10):
+    import itertools
+    deck = Deck(num_cards)
+
+    commands = ["deal into new stack"]
+    commands.extend(["deal with increment {}".format(i) for i in set([3, 7, 9, 21, 27, num_cards - 3, num_cards - 7])])
+    commands.extend(["cut {}".format(i) for i in range(1, num_cards)])
+
+    shuffles = list(itertools.permutations(commands, 2))
+    for shuffle in shuffles:
+        deck.reset()
+        deck.shuffle(shuffle)
+        target = list(deck.cards)
+        
+        for singleton in commands:
+            deck.reset()
+            deck.shuffle([singleton])
+            if deck.cards == target:
+                print(shuffle, "=", singleton)
+        
+        for double in shuffles:
+            if shuffle == double:
+                continue
+
+            deck.reset()
+            deck.shuffle(double)
+            if deck.cards == target:
+                print(shuffle, "=", double)
+        
+
+
+
+   
 if __name__ == "__main__":
-    _main()
+    """
+    strategy:
+
+    1. Reduce the shuffle into a single cut and a single deal (should be possible with rules)
+        a. remove all reverses
+        b. group all cuts and steps together
+        c. collapse
+    2. Determine the period of the reduced shuffle (hopefully this is much easier!)
+    3. ...
+    4. Solution
+    """
+    _find_equiv()
+
