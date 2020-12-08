@@ -156,3 +156,5 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 *.exe
+
+.vscode
